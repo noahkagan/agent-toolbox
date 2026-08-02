@@ -5,6 +5,11 @@ description: Workspace layout, file conventions, and the durable working-unit re
 
 # Workspace conventions
 
+Before reading or changing tracker state, run `nk workspace root` from the
+current path. Use only the returned directory for `TODO.md`, `scratch/`, and
+task lifecycle commands. Do not infer the workspace from Git roots, `.meta`,
+project layout, repository purpose, or the nk source checkout.
+
 This workspace mirrors upstream forge group/org paths. Repos are managed
 with `meta`; skills load by walking up `.claude/skills` directories.
 
