@@ -1,6 +1,7 @@
 {
   "commands": {
     "allow": [
+      "./install.sh",
       "[",
       "apply_patch",
       "cd",
