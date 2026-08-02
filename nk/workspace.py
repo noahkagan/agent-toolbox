@@ -50,7 +50,12 @@ def marker_supported(root: Path) -> bool:
     marker = root / MARKER
     if not marker.exists():
         return False
-    if not marker.is_file() or marker.read_text(encoding="utf-8") != MARKER_CONTENT:
+    if (
+        marker.parent.is_symlink()
+        or marker.is_symlink()
+        or not marker.is_file()
+        or marker.read_text(encoding="utf-8") != MARKER_CONTENT
+    ):
         raise WorkspaceError(f"unsupported workspace identity: {marker}")
     return True
 
@@ -60,9 +65,9 @@ def validate_registry(root: Path) -> tuple[bool, bool]:
     scratch = root / "scratch"
     todo_exists = todo.exists()
     scratch_exists = scratch.exists()
-    if todo_exists and not todo.is_file():
+    if todo_exists and (todo.is_symlink() or not todo.is_file()):
         raise WorkspaceError(f"workspace tracker is not a file: {todo}")
-    if scratch_exists and not scratch.is_dir():
+    if scratch_exists and (scratch.is_symlink() or not scratch.is_dir()):
         raise WorkspaceError(f"workspace scratch is not a directory: {scratch}")
 
     buckets: dict[str, str] = {}
@@ -79,7 +84,11 @@ def validate_registry(root: Path) -> tuple[bool, bool]:
     if scratch_exists and not todo_exists and entries:
         raise WorkspaceError("workspace scratch contains orphaned task directories")
     if todo_exists and scratch_exists:
-        unexpected = [entry.name for entry in entries if not entry.is_dir() or entry.name not in buckets]
+        unexpected = [
+            entry.name
+            for entry in entries
+            if entry.is_symlink() or not entry.is_dir() or entry.name not in buckets
+        ]
         if unexpected:
             raise WorkspaceError(
                 "workspace scratch contains orphaned entries: " + ", ".join(unexpected)

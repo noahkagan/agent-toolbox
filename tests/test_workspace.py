@@ -178,6 +178,22 @@ with tempfile.TemporaryDirectory() as directory:
     assert not (orphaned / MARKER).exists()
     assert not (orphaned / "TODO.md").exists()
 
+    symlinked = temporary / "symlinked"
+    external = temporary / "external-scratch"
+    repository(symlinked)
+    external.mkdir()
+    (external / "keep.txt").write_text("keep\n")
+    (symlinked / MARKER.parent).mkdir()
+    (symlinked / MARKER).write_text(MARKER_CONTENT)
+    (symlinked / "TODO.md").write_text(TODO_CONTENT)
+    (symlinked / "scratch").symlink_to(external, target_is_directory=True)
+    rejected = run("workspace", "reset", symlinked, cwd=temporary, check=False)
+    assert rejected.returncode == 1
+    assert "workspace scratch is not a directory" in rejected.stderr
+    assert (symlinked / MARKER).read_text() == MARKER_CONTENT
+    assert (symlinked / "TODO.md").read_text() == TODO_CONTENT
+    assert (external / "keep.txt").read_text() == "keep\n"
+
     outside = run("workspace", "root", temporary, cwd=temporary, check=False)
     assert outside.returncode == 1
     assert "no initialized nk workspace owns" in outside.stderr
