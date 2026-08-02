@@ -1,7 +1,8 @@
 # Command approvals
 
-`commands.json` is the authoritative list of approved base commands. Install
-equivalent rules for Codex, Claude Code, and Gemini CLI with:
+`commands.json` is the authoritative list of approved base commands. The
+top-level installer installs equivalent rules for Codex, Claude Code, and
+Gemini CLI. To install only the policies, run:
 
 ```sh
 python policy/render.py --install
