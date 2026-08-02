@@ -28,6 +28,7 @@ with tempfile.TemporaryDirectory() as directory:
 
     settings = json.loads((home / ".claude/settings.json").read_text())
     assert "Bash(git *)" in settings["permissions"]["allow"]
+    assert "Bash(nk *)" in settings["permissions"]["allow"]
     subprocess.run([home / ".local/bin/nk", "--help"], env=environment, check=True)
 
 print("installer is valid")
