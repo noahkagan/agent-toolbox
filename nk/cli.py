@@ -4,7 +4,7 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 
-from . import task
+from . import task, workspace
 
 
 Command = Callable[[list[str] | None], int]
@@ -12,7 +12,7 @@ Command = Callable[[list[str] | None], int]
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="nk")
-    result.add_argument("command", nargs="?", choices=("task",))
+    result.add_argument("command", nargs="?", choices=("task", "workspace"))
     return result
 
 
@@ -22,7 +22,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser().print_help(sys.stdout if arguments else sys.stderr)
         return 0 if arguments else 2
     command, rest = arguments[0], arguments[1:]
-    handlers: dict[str, Command] = {"task": task.main}
+    handlers: dict[str, Command] = {"task": task.main, "workspace": workspace.main}
     handler = handlers.get(command)
     if handler is not None:
         return handler(rest)

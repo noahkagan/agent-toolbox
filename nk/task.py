@@ -20,6 +20,8 @@ from datetime import datetime
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Iterable
 
+from . import workspace as workspace_registry
+
 
 QUEUE_ORDER = (
     "Blocked", "Authoring", "Ready", "Done", "Backlog", "Cancelled",
@@ -2656,51 +2658,51 @@ def parser() -> argparse.ArgumentParser:
     subparsers = result.add_subparsers(dest="command", required=True)
     command = subparsers.add_parser("create")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("follow-up")
     command.add_argument("source")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("check")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("ready")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("claim")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--slug", help="manual explicit target; automation omits this")
     command = subparsers.add_parser("status")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
     command = subparsers.add_parser("submit")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
     command.add_argument("--repository", action="append", default=[])
     command = subparsers.add_parser("complete")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
     command = subparsers.add_parser("checkpoint")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("block")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("unblock")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--to", choices=("Backlog", "Ready"), required=True)
     command = subparsers.add_parser("cancel")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command = subparsers.add_parser("reorder")
     command.add_argument("slug")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     order = command.add_mutually_exclusive_group(required=True)
     order.add_argument("--before")
     order.add_argument("--after")
     command = subparsers.add_parser("dependency")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     dependency_commands = command.add_subparsers(dest="dependency_command", required=True)
     for name in ("add", "remove"):
         child = dependency_commands.add_parser(name)
@@ -2711,7 +2713,7 @@ def parser() -> argparse.ArgumentParser:
     child.add_argument("task")
     child.add_argument("--workspace", default=argparse.SUPPRESS)
     command = subparsers.add_parser("record-validation")
-    command.add_argument("--workspace", default=".")
+    command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
     command.add_argument("--verdict", choices=("pass", "regression", "unavailable"))
     command.add_argument("--task-plan-records", type=Path)
@@ -2720,7 +2722,15 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
-    workspace = Path(args.workspace).expanduser().resolve()
+    try:
+        workspace = (
+            workspace_registry.require_root(Path(args.workspace))
+            if args.workspace is not None
+            else workspace_registry.find_root(Path.cwd())
+        )
+    except workspace_registry.WorkspaceError as exc:
+        print(f"ERROR\t{exc}", file=sys.stderr)
+        return 1
     try:
         if args.command == "create":
             create(workspace, args.slug)
