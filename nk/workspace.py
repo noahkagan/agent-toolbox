@@ -48,12 +48,12 @@ def control_root(path: Path) -> Path:
 
 def marker_supported(root: Path) -> bool:
     marker = root / MARKER
+    if marker.parent.is_symlink() or marker.is_symlink():
+        raise WorkspaceError(f"unsupported workspace identity: {marker}")
     if not marker.exists():
         return False
     if (
-        marker.parent.is_symlink()
-        or marker.is_symlink()
-        or not marker.is_file()
+        not marker.is_file()
         or marker.read_text(encoding="utf-8") != MARKER_CONTENT
     ):
         raise WorkspaceError(f"unsupported workspace identity: {marker}")
@@ -63,8 +63,8 @@ def marker_supported(root: Path) -> bool:
 def validate_registry(root: Path) -> tuple[bool, bool]:
     todo = root / "TODO.md"
     scratch = root / "scratch"
-    todo_exists = todo.exists()
-    scratch_exists = scratch.exists()
+    todo_exists = todo.exists() or todo.is_symlink()
+    scratch_exists = scratch.exists() or scratch.is_symlink()
     if todo_exists and (todo.is_symlink() or not todo.is_file()):
         raise WorkspaceError(f"workspace tracker is not a file: {todo}")
     if scratch_exists and (scratch.is_symlink() or not scratch.is_dir()):

@@ -194,6 +194,41 @@ with tempfile.TemporaryDirectory() as directory:
     assert (symlinked / "TODO.md").read_text() == TODO_CONTENT
     assert (external / "keep.txt").read_text() == "keep\n"
 
+    dangling_marker = temporary / "dangling-marker"
+    marker_target = temporary / "external-marker"
+    repository(dangling_marker)
+    (dangling_marker / MARKER.parent).mkdir()
+    (dangling_marker / MARKER).symlink_to(marker_target)
+    rejected = run("workspace", "init", dangling_marker, cwd=temporary, check=False)
+    assert rejected.returncode == 1
+    assert "unsupported workspace identity" in rejected.stderr
+    assert (dangling_marker / MARKER).is_symlink()
+    assert not marker_target.exists()
+    assert not (dangling_marker / "TODO.md").exists()
+    assert not (dangling_marker / "scratch").exists()
+
+    dangling_todo = temporary / "dangling-todo"
+    todo_target = temporary / "external-todo"
+    repository(dangling_todo)
+    (dangling_todo / "TODO.md").symlink_to(todo_target)
+    rejected = run("workspace", "init", dangling_todo, cwd=temporary, check=False)
+    assert rejected.returncode == 1
+    assert "workspace tracker is not a file" in rejected.stderr
+    assert not todo_target.exists()
+    assert not (dangling_todo / MARKER).exists()
+    assert not (dangling_todo / "scratch").exists()
+
+    dangling_scratch = temporary / "dangling-scratch"
+    scratch_target = temporary / "external-scratch-target"
+    repository(dangling_scratch)
+    (dangling_scratch / "scratch").symlink_to(scratch_target, target_is_directory=True)
+    rejected = run("workspace", "init", dangling_scratch, cwd=temporary, check=False)
+    assert rejected.returncode == 1
+    assert "workspace scratch is not a directory" in rejected.stderr
+    assert not scratch_target.exists()
+    assert not (dangling_scratch / MARKER).exists()
+    assert not (dangling_scratch / "TODO.md").exists()
+
     outside = run("workspace", "root", temporary, cwd=temporary, check=False)
     assert outside.returncode == 1
     assert "no initialized nk workspace owns" in outside.stderr
