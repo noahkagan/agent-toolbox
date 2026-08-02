@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Specification"
+  short_description: "Define verifiable software outcomes and bounds"
+  default_prompt: "Use $write-spec to draft a concise, implementation-neutral specification for this work."
