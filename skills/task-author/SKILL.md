@@ -102,9 +102,8 @@ shared ownership.
    Submit records exact refs and SHAs while the task remains Authoring. Spawn
    three fresh-context read-only reviewers against that exact candidate:
 
-   1. Use `$ponytail` to find a simpler correct solution.
-   2. Use `$complexity-audit` and `$improve-codebase-architecture` to find
-      task-scoped accidental complexity or misplaced ownership.
+   1. Find a simpler correct solution.
+   2. Find task-scoped accidental complexity or misplaced ownership.
    3. Compare the solution with industry SOTA and current best practices
       without requesting scope expansion merely for conformity.
 
