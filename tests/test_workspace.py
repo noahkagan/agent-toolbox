@@ -110,6 +110,20 @@ with tempfile.TemporaryDirectory() as directory:
     assert (workspace / "TODO.md").read_text() == TODO_CONTENT
     assert not any((workspace / "scratch").iterdir())
 
+    nested_dangling = workspace / "projects/dangling"
+    nested_target = temporary / "nested-external-marker"
+    repository(nested_dangling)
+    (nested_dangling / MARKER.parent).mkdir()
+    (nested_dangling / MARKER).symlink_to(nested_target)
+    marker_before = (workspace / MARKER).read_bytes()
+    todo_before = (workspace / "TODO.md").read_bytes()
+    rejected = run("workspace", "reset", nested_dangling, cwd=temporary, check=False)
+    assert rejected.returncode == 1
+    assert "unsupported workspace identity" in rejected.stderr
+    assert (workspace / MARKER).read_bytes() == marker_before
+    assert (workspace / "TODO.md").read_bytes() == todo_before
+    assert not nested_target.exists()
+
     unsupported = temporary / "unsupported"
     repository(unsupported)
     (unsupported / ".nk").mkdir()

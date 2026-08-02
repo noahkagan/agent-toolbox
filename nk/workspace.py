@@ -47,8 +47,11 @@ def control_root(path: Path) -> Path:
 
 
 def marker_supported(root: Path) -> bool:
+    identity = root / MARKER.parent
     marker = root / MARKER
-    if marker.parent.is_symlink() or marker.is_symlink():
+    if identity.is_symlink() or (identity.exists() and not identity.is_dir()):
+        raise WorkspaceError(f"unsupported workspace identity: {marker}")
+    if marker.is_symlink():
         raise WorkspaceError(f"unsupported workspace identity: {marker}")
     if not marker.exists():
         return False
@@ -136,8 +139,7 @@ def find_root(path: Path) -> Path:
     if current.is_file():
         current = current.parent
     for candidate in (current, *current.parents):
-        if (candidate / MARKER).exists():
-            marker_supported(candidate)
+        if marker_supported(candidate):
             todo_exists, scratch_exists = validate_registry(candidate)
             if not todo_exists or not scratch_exists:
                 raise WorkspaceError(f"workspace registry is incomplete: {candidate}")
