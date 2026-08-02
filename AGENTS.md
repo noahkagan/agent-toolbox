@@ -22,6 +22,10 @@ the best code is the code never written.
   the design from first principles, rather than continuing to patch symptoms.
 - Reuse existing dependencies, libraries, algorithms, and shared logic when
   they fit without adding dependencies or obscuring the design.
+- Always prefer composition over inheritance.
+- Always prefer async over sync, unless there is a latency concern.
+- Choose data model representations where it is impossible to represent bad
+  state, instead of implementing runtime branching for bad state.
 - Treat responses and documents with the same care and concision as code.
 - Define a verifiable outcome before implementation. For multi-step work, give
   a brief plan with a check for each step, then verify the result before
