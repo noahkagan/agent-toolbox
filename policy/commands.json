@@ -1,0 +1,31 @@
+{
+  "commands": {
+    "allow": [
+      "apply_patch",
+      "command",
+      "env",
+      "find",
+      "gh",
+      "git",
+      "head",
+      "jq",
+      "ls",
+      "meta",
+      "printf",
+      "pwd",
+      "python",
+      "rg",
+      "rm",
+      "rmdir",
+      "sed",
+      "sh",
+      "sort",
+      "ssh",
+      "ssh-keygen",
+      "subl",
+      "test",
+      "true",
+      "uniq"
+    ]
+  }
+}

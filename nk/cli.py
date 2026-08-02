@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+import argparse
+import sys
+from collections.abc import Callable, Sequence
+
+from . import task
+
+
+Command = Callable[[list[str] | None], int]
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(prog="nk")
+    result.add_argument("command", nargs="?", choices=("task",))
+    return result
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments or arguments == ["--help"] or arguments == ["-h"]:
+        parser().print_help(sys.stdout if arguments else sys.stderr)
+        return 0 if arguments else 2
+    command, rest = arguments[0], arguments[1:]
+    handlers: dict[str, Command] = {"task": task.main}
+    handler = handlers.get(command)
+    if handler is not None:
+        return handler(rest)
+    parser().error(f"unknown command: {command}")
+    return 2

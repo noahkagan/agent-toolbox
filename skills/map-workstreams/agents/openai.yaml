@@ -1,0 +1,4 @@
+interface:
+  display_name: "Map Workstreams"
+  short_description: "Map actionable tasks in a dependency Gantt"
+  default_prompt: "Use $map-workstreams to write a temporary Gantt of Blocked, Authoring, and Ready tasks using exact slugs."
