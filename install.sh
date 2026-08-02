@@ -18,23 +18,16 @@ check_link() {
 check_link "$source_root/AGENTS.md" "$HOME/.codex/AGENTS.md"
 check_link "$source_root/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 check_link "$source_root/bin/nk" "$HOME/.local/bin/nk"
-for skill in "$source_root"/skills/*; do
-  name=${skill##*/}
-  check_link "$skill" "$HOME/.agents/skills/$name"
-  check_link "$skill" "$HOME/.claude/skills/$name"
-done
 
 # Install policies first because malformed existing settings must fail before links change.
 python3 "$source_root/policy/render.py" --install --home "$HOME"
 
-mkdir -p "$HOME/.local/bin" "$HOME/.agents/skills" "$HOME/.codex" "$HOME/.claude/skills"
+mkdir -p "$HOME/.local/bin" "$HOME/.agents" "$HOME/.codex" "$HOME/.claude"
 ln -sfn "$source_root/AGENTS.md" "$HOME/.codex/AGENTS.md"
 ln -sfn "$source_root/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 ln -sfn "$source_root/bin/nk" "$HOME/.local/bin/nk"
-for skill in "$source_root"/skills/*; do
-  name=${skill##*/}
-  ln -sfn "$skill" "$HOME/.agents/skills/$name"
-  ln -sfn "$skill" "$HOME/.claude/skills/$name"
-done
+rm -rf -- "$HOME/.agents/skills" "$HOME/.claude/skills"
+ln -s "$source_root/skills" "$HOME/.agents/skills"
+ln -s "$source_root/skills" "$HOME/.claude/skills"
 
 printf 'Installed agent-toolbox from %s\n' "$source_root"
