@@ -129,7 +129,9 @@ def find_root(path: Path) -> Path:
     for candidate in (current, *current.parents):
         if (candidate / MARKER).exists():
             marker_supported(candidate)
-            validate_registry(candidate)
+            todo_exists, scratch_exists = validate_registry(candidate)
+            if not todo_exists or not scratch_exists:
+                raise WorkspaceError(f"workspace registry is incomplete: {candidate}")
             return candidate
     raise WorkspaceError(f"no initialized nk workspace owns: {current}")
 
