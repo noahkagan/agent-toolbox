@@ -9,6 +9,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import runtime as runtime_policy
+
 
 ROOT = Path(__file__).parent
 
@@ -52,7 +54,7 @@ def write(path: Path, content: str) -> None:
     os.replace(temporary, path)
 
 
-def install(home: Path, values: list[str]) -> None:
+def install(home: Path, values: list[str], runtime: dict[str, bool]) -> None:
     settings_path = home / ".claude/settings.json"
     settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
     if not isinstance(settings, dict) or not isinstance(settings.get("permissions", {}), dict):
@@ -63,7 +65,15 @@ def install(home: Path, values: list[str]) -> None:
         raise ValueError(f"Expected permissions.allow to be a list: {settings_path}")
     permissions["allow"] = list(dict.fromkeys([*allowed, *claude(values)]))
 
+    codex_config_path = home / ".codex/config.toml"
+    codex_config = (
+        codex_config_path.read_text(encoding="utf-8")
+        if codex_config_path.exists() else ""
+    )
+    rendered_codex = runtime_policy.codex(codex_config, runtime)
+
     write(home / ".codex/rules/agent-toolbox.rules", codex(values))
+    write(codex_config_path, rendered_codex)
     write(home / ".gemini/policies/agent-toolbox.toml", gemini(values))
     write(settings_path, json.dumps(settings, indent=2) + "\n")
 
@@ -80,9 +90,10 @@ def main() -> None:
     parser.add_argument("--home", type=Path, default=Path.home(), help="installation home (default: current home)")
     args = parser.parse_args()
     values = commands()
+    runtime = runtime_policy.policy(ROOT)
     check(values)
     if args.install:
-        install(args.home, values)
+        install(args.home, values, runtime)
     else:
         print("policy is valid")
 

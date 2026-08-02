@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+import tomllib
 from pathlib import Path
 
 
@@ -15,6 +16,12 @@ with tempfile.TemporaryDirectory() as directory:
     for discovery in (home / ".agents/skills", home / ".claude/skills"):
         discovery.mkdir(parents=True)
         (discovery / "stale-skill").mkdir()
+    codex_config = home / ".codex/config.toml"
+    codex_config.parent.mkdir(parents=True)
+    codex_config.write_text(
+        '[projects."/example"]\ntrust_level = "trusted"\n',
+        encoding="utf-8",
+    )
     subprocess.run([root / "install.sh"], env=environment, check=True)
     subprocess.run([root / "install.sh"], env=environment, check=True)
 
@@ -30,6 +37,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert "Bash(git *)" in settings["permissions"]["allow"]
     assert "Bash(./install.sh *)" in settings["permissions"]["allow"]
     assert "Bash(nk *)" in settings["permissions"]["allow"]
+    installed_codex = tomllib.loads(codex_config.read_text(encoding="utf-8"))
+    assert installed_codex["sandbox_mode"] == "workspace-write"
+    assert installed_codex["sandbox_workspace_write"]["network_access"] is True
+    assert installed_codex["projects"]["/example"]["trust_level"] == "trusted"
     subprocess.run([home / ".local/bin/nk", "--help"], env=environment, check=True)
 
 print("installer is valid")
