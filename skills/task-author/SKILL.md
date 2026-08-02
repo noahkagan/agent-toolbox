@@ -34,11 +34,11 @@ a verified durable route:
 
 ## Claim boundary
 
-Use `$workspace-conventions` for layout and `$task-coordination` for lifecycle
-safety. Resolve the current workspace root once, then derive the claim from TODO
-placement and `scratch/<slug>/claim.json`. Verify that it belongs to this
-workspace. If it does not, report that no verifiable durable outcome was
-reached; never acquire or replace a claim.
+Use `$workspace-conventions` for layout. Resolve the current workspace root
+once, then derive the claim from TODO placement and
+`scratch/<slug>/claim.json`. Verify that it belongs to this workspace. If it
+does not, report that no verifiable durable outcome was reached; never acquire
+or replace a claim.
 
 Author and validate directly in the claimed workspace. Child repositories are
 the working candidate checkouts; do not create temporary checkouts or
