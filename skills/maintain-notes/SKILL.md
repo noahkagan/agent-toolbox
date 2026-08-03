@@ -5,7 +5,7 @@ description: Write and maintain concise, linked Markdown notes without duplicate
 
 # Maintain Notes
 
-Treat a note set as an implicit graph connected by Markdown links. Add structure only when a demonstrated navigation problem requires it.
+Treat a note set as an implicit graph connected by Markdown links.
 
 ## Write
 
