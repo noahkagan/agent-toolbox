@@ -1,10 +1,13 @@
 # agent-toolbox
 
-My opinionated toolbox for three recurring needs in my agent workflows:
+My opinionated toolbox for recurring needs in my agent workflows:
 
 - Keep agent behavior consistent across tools and repositories.
 - Apply repeatable methods to design, specifications, notes, and implementation.
 - Make distributed task state durable, claimable, and verifiable.
+- Reduce review burden with clear definitions, sufficient specifications, and
+  bounded structure.
+- Keep durable knowledge maps current through automatic agent maintenance.
 
 ## Install
 
