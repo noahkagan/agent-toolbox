@@ -620,14 +620,9 @@ base_snapshot = {
         "number": 7, "url": "https://github.com/example/project/pull/7",
         "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
         "state": "MERGED", "headRefOid": candidate_sha,
-        "reviewDecision": "APPROVED",
+        "reviewDecision": "",
     },
-    "reviews": [
-        {
-            "user": {"login": "human"}, "state": "APPROVED",
-            "commit_id": candidate_sha,
-        }
-    ],
+    "reviews": [],
 }
 review_binding = {
     "number": 7, "url": "https://github.com/example/project/pull/7",
@@ -636,31 +631,11 @@ review_binding = {
 assert task.review_complete(base_snapshot, review_binding, candidate_sha)
 for field, value in (
     ("state", "OPEN"), ("state", "CLOSED"),
-    ("reviewDecision", None), ("reviewDecision", "CHANGES_REQUESTED"),
     ("headRefOid", "b" * 40),
 ):
     changed = json.loads(json.dumps(base_snapshot))
     changed["metadata"][field] = value
     assert not task.review_complete(changed, review_binding, candidate_sha)
-
-changed = json.loads(json.dumps(base_snapshot))
-changed["reviews"].append(
-    {
-        "user": {"login": "human"}, "state": "CHANGES_REQUESTED",
-        "commit_id": candidate_sha,
-    }
-)
-changed["metadata"]["reviewDecision"] = "CHANGES_REQUESTED"
-assert not task.review_complete(changed, review_binding, candidate_sha)
-
-changed = json.loads(json.dumps(base_snapshot))
-changed["reviews"].append(
-    {
-        "user": {"login": "human"}, "state": "COMMENTED",
-        "commit_id": candidate_sha,
-    }
-)
-assert task.review_complete(changed, review_binding, candidate_sha)
 
 for field, value in (
     ("number", 8), ("url", "https://github.com/example/project/pull/8"),

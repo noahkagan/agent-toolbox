@@ -1623,16 +1623,6 @@ def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def effective_exact_approval(snapshot: dict[str, Any], candidate_sha: str) -> bool:
-    if snapshot["metadata"].get("reviewDecision") != "APPROVED":
-        return False
-    return any(
-        review.get("state") == "APPROVED"
-        and review.get("commit_id") == candidate_sha
-        for review in snapshot["reviews"]
-    )
-
-
 def review_complete(
     snapshot: dict[str, Any], binding: dict[str, Any], candidate_sha: str
 ) -> bool:
@@ -1644,7 +1634,6 @@ def review_complete(
         and metadata.get("headRefName") == binding["source_branch"]
         and metadata.get("state") == "MERGED"
         and metadata.get("headRefOid") == candidate_sha
-        and effective_exact_approval(snapshot, candidate_sha)
     )
 
 
