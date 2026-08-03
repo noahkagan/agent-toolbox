@@ -23,7 +23,7 @@ Explicitly define the note set's current uncertainty frontier: the boundary betw
 
 The frontier may span documents. Give each undefined product need or unanswered question one canonical home and mark it clearly. Link it to relevant observations, experiments, sources, or decisions. Other documents reference that canonical statement without summarizing it.
 
-Progressively advance the frontier as people define product needs, develop knowledge, or make decisions. Define a product need only through an explicit product decision; never infer it from a technical design. Resolve another unknown through a referenced finding or explicit decision. Record the result in its canonical document, then update the frontier. Add sharper or newly exposed unknowns when warranted. Advancement does not require the frontier to shrink.
+Progressively advance the frontier as people define product needs, develop knowledge, or make decisions. Define a product need only through an explicit product decision; never infer it from a technical design. Resolve unknowns through research, exploration, or experimentation that produces knowledge. A human may also resolve an unknown through an explicit decision without proof. Record the resulting knowledge or decision in its canonical document, then update the frontier. Add sharper or newly exposed unknowns when warranted. Advancement does not require the frontier to shrink.
 
 ## Revise
 
