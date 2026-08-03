@@ -340,16 +340,14 @@ with tempfile.TemporaryDirectory() as temporary:
                 "number": 7, "url": "https://github.com/example/project/pull/7",
                 "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
                 "state": "MERGED", "headRefOid": candidate_sha,
-                "reviewDecision": "APPROVED",
+                "reviewDecision": "",
             },
-            "reviews": [
-                {
-                    "user": {"login": "human"}, "state": "APPROVED",
-                    "commit_id": candidate_sha,
-                }
-            ],
+            "reviews": [],
             "comments": [], "review_comments": [], "threads": [],
         }
+        task.reconcile_review(workspace, SLUG)
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Review"
         git(child, "push", "origin", f"{candidate_sha}:refs/heads/main")
         task.push_control_ref = lambda *_args, **_kwargs: subprocess.CompletedProcess(
             args=[], returncode=1, stdout="", stderr="lease rejected"
