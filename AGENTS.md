@@ -30,6 +30,11 @@ the best code is the code never written.
 - Choose data model representations where it is impossible to represent bad
   state, instead of implementing runtime branching for bad state.
 - Treat responses and documents with the same care and concision as code.
+- Always search for and read relevant project documentation before writing
+  documents, plans, specifications, or code. Follow its links to canonical
+  documents, code, tests, artifacts, and sources.
+- After changing documents, plans, specifications, or code, update project
+  documentation that no longer describes the project accurately.
 - Define a verifiable outcome before implementation. For multi-step work, give
   a brief plan with a check for each step, then verify the result before
   reporting completion.
