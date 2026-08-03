@@ -110,8 +110,7 @@ unconstrained, except a coordinated task requires at least one repository.
 Declare the least restrictive requirements that can complete the whole task:
 omit `os` when any eligible platform can do so, and request a GPU only when task
 verification uses it. Split work into dependent tasks when different phases
-require different or multiple platforms. Legacy three-field manifests remain
-readable.
+require different or multiple platforms.
 
 Workspace unit:
 

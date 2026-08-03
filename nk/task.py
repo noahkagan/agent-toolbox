@@ -23,9 +23,6 @@ from typing import Any, Callable, Iterable
 from . import workspace as workspace_registry
 
 
-LEGACY_QUEUE_ORDER = (
-    "Blocked", "Authoring", "Ready", "Done", "Backlog", "Cancelled",
-)
 QUEUE_ORDER = (
     "Blocked", "Authoring", "Review", "Ready", "Done", "Backlog", "Cancelled",
 )
@@ -34,14 +31,14 @@ TASK_RE = re.compile(
     r"^- \[`([^`]+)`\]\((scratch/[^)]+/README\.md)\)$"
 )
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-LEGACY_CLAIM_FIELDS = {"owner", "claim_id"}
-CLAIM_FIELDS = {*LEGACY_CLAIM_FIELDS, "spec_sha", "repositories"}
-CANDIDATE_FIELDS = {"slug", "author_owner", "repositories"}
-CLAIMED_CANDIDATE_FIELDS = {*CANDIDATE_FIELDS, "spec_sha", "allowed_repositories"}
+CLAIM_FIELDS = {"owner", "claim_id", "spec_sha", "repositories"}
+CANDIDATE_FIELDS = {
+    "slug", "author_owner", "spec_sha", "allowed_repositories", "repositories",
+}
 EVIDENCE_NAMES = (
     "candidate.json", "merge.json", "validation.json", "review.json",
 )
-MANIFEST_FIELDS = {"dependencies", "capabilities", "resources"}
+MANIFEST_FIELDS = {"dependencies", "capabilities", "resources", "repositories"}
 CAPABILITY_FIELDS = {"os", "architecture"}
 RESOURCE_FIELDS = {"gpu"}
 RUNTIME_PREFIX = ".workspace"
@@ -357,9 +354,10 @@ def parse_todo(
             raise CoordinationError(f"task README is missing: {readme}")
         buckets[slug] = bucket
         readmes[slug] = readme
-    if headings not in (list(QUEUE_ORDER), list(LEGACY_QUEUE_ORDER)):
+    if headings != list(QUEUE_ORDER):
         raise CoordinationError(
-            "TODO queues must appear exactly once in canonical or legacy order"
+            "TODO queues must appear exactly once in this order: "
+            + ", ".join(QUEUE_ORDER)
         )
     return buckets, readmes
 
@@ -405,16 +403,15 @@ def text_from_tree(workspace: Path, tree: str, path: str) -> str:
 
 
 def validate_claim(data: object, path: str, buckets: dict[str, str]) -> dict[str, Any]:
-    fields = frozenset(data) if isinstance(data, dict) else frozenset()
-    if not isinstance(data, dict) or fields not in {
-        frozenset(LEGACY_CLAIM_FIELDS), frozenset(CLAIM_FIELDS),
-    }:
+    if not isinstance(data, dict) or set(data) != CLAIM_FIELDS:
         raise CoordinationError(f"invalid claim fields: {path}")
-    if not all(isinstance(data[field], str) and data[field] for field in LEGACY_CLAIM_FIELDS):
-        raise CoordinationError(f"invalid claim values: {path}")
-    if fields == frozenset(CLAIM_FIELDS) and (
-        SHA_RE.fullmatch(data["spec_sha"]) is None
-        or not valid_repositories(data["repositories"], allow_empty=True)
+    if (
+        not all(
+            isinstance(data[field], str) and data[field]
+            for field in {"owner", "claim_id"}
+        )
+        or SHA_RE.fullmatch(data["spec_sha"]) is None
+        or not valid_repositories(data["repositories"])
     ):
         raise CoordinationError(f"invalid claim values: {path}")
     claim = dict(data)
@@ -536,19 +533,6 @@ def move_todo(workspace: Path, slug: str, source: str, target: str) -> None:
     while target_index > heading_index + 1 and lines[target_index - 1] == "":
         target_index -= 1
     lines.insert(target_index, task_line)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def ensure_review_queue(workspace: Path) -> None:
-    path = workspace / "TODO.md"
-    lines = path.read_text(encoding="utf-8").splitlines()
-    if "## Review" in lines:
-        return
-    authoring = lines.index("## Authoring")
-    index = authoring + 1
-    while index < len(lines) and not lines[index].startswith("## "):
-        index += 1
-    lines[index:index] = ["## Review", ""]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -779,10 +763,7 @@ def candidate_entry(workspace: Path, slug: str, value: str) -> dict[str, str]:
 
 
 def validate_candidate(data: Any, slug: str) -> dict[str, Any]:
-    fields = frozenset(data) if isinstance(data, dict) else frozenset()
-    if not isinstance(data, dict) or fields not in {
-        frozenset(CANDIDATE_FIELDS), frozenset(CLAIMED_CANDIDATE_FIELDS)
-    }:
+    if not isinstance(data, dict) or set(data) != CANDIDATE_FIELDS:
         raise CoordinationError("candidate manifest fields are invalid")
     if data.get("slug") != slug or not isinstance(data.get("author_owner"), str) or not data["author_owner"]:
         raise CoordinationError("candidate manifest identity is invalid")
@@ -802,7 +783,7 @@ def validate_candidate(data: Any, slug: str) -> dict[str, Any]:
         if not entry["target_ref"].startswith("refs/heads/"):
             raise CoordinationError("candidate target ref is invalid")
         seen.add(entry["path"])
-    if fields == CLAIMED_CANDIDATE_FIELDS and (
+    if (
         SHA_RE.fullmatch(data["spec_sha"]) is None
         or not valid_repositories(data["allowed_repositories"])
     ):
@@ -845,10 +826,10 @@ def optional_json_from_tree(workspace: Path, tree: str, path: str) -> Any | None
         raise CoordinationError(f"invalid JSON in {path}: {exc}") from exc
 
 
-def valid_repositories(value: object, *, allow_empty: bool = False) -> bool:
+def valid_repositories(value: object) -> bool:
     return (
         isinstance(value, list)
-        and (allow_empty or bool(value))
+        and bool(value)
         and all(isinstance(item, str) for item in value)
         and len(value) == len(set(value))
         and all(
@@ -861,15 +842,12 @@ def valid_repositories(value: object, *, allow_empty: bool = False) -> bool:
 
 
 def validate_manifest(data: Any, slug: str, *, require_ready: bool = False) -> dict[str, Any]:
-    fields = frozenset(data) if isinstance(data, dict) else frozenset()
-    if not isinstance(data, dict) or fields not in {
-        frozenset(MANIFEST_FIELDS), frozenset({*MANIFEST_FIELDS, "repositories"})
-    }:
+    if not isinstance(data, dict) or set(data) != MANIFEST_FIELDS:
         raise CoordinationError(f"task manifest fields are invalid: {slug}")
     dependencies = data["dependencies"]
     capabilities = data["capabilities"]
     resources = data["resources"]
-    repositories = data.get("repositories")
+    repositories = data["repositories"]
     if dependencies is not None and (
         not isinstance(dependencies, list)
         or any(not isinstance(value, str) or not value for value in dependencies)
@@ -888,7 +866,7 @@ def validate_manifest(data: Any, slug: str, *, require_ready: bool = False) -> d
         or any(not isinstance(value, int) or value < 0 for value in resources.values())
     ):
         raise CoordinationError(f"task resources are invalid: {slug}")
-    if "repositories" in data and repositories is not None and not valid_repositories(repositories):
+    if repositories is not None and not valid_repositories(repositories):
         raise CoordinationError(f"task repositories are invalid: {slug}")
     if require_ready and any(value is None for value in data.values()):
         raise CoordinationError(f"task manifest is unresolved: {slug}")
@@ -1248,11 +1226,11 @@ def publish_claim(
                     "owner": owner(workspace),
                     "claim_id": claim_id,
                     "spec_sha": (
-                        candidate.get("spec_sha", tree) if candidate else tree
+                        candidate["spec_sha"] if candidate else tree
                     ),
                     "repositories": (
-                        candidate.get("allowed_repositories", [])
-                        if candidate else manifest.get("repositories", [])
+                        candidate["allowed_repositories"]
+                        if candidate else manifest["repositories"]
                     ),
                 },
             )
@@ -1362,8 +1340,8 @@ def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
         buckets, _, current = task_claim(workspace, slug)
         if buckets.get(slug) != "Authoring":
             raise CoordinationError("submit requires an Authoring task")
-        allowed = current.get("repositories", [])
-        unexpected = sorted(set(repositories) - set(allowed)) if allowed else []
+        allowed = current["repositories"]
+        unexpected = sorted(set(repositories) - set(allowed))
         if unexpected:
             raise CoordinationError(
                 f"candidate adds repositories outside the claim: {unexpected}"
@@ -1372,8 +1350,8 @@ def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
         manifest = {
             "slug": slug,
             "author_owner": current["owner"],
-            "spec_sha": current.get("spec_sha", expected_sha),
-            "allowed_repositories": allowed or repositories,
+            "spec_sha": current["spec_sha"],
+            "allowed_repositories": allowed,
             "repositories": entries,
         }
         paths = evidence_paths(workspace, slug)
@@ -1782,7 +1760,6 @@ def publish_review(workspace: Path, slug: str) -> None:
                     "repositories": bindings,
                 },
             )
-            ensure_review_queue(temporary)
             move_todo(temporary, slug, "Authoring", "Review")
             temporary_claim = task_dir(temporary, slug) / "claim.json"
             temporary_claim.unlink()
@@ -1822,15 +1799,11 @@ def repair_review(workspace: Path, slug: str) -> None:
         claim = {
             "owner": owner(workspace),
             "claim_id": uuid.uuid4().hex,
-            "spec_sha": candidate.get("spec_sha", expected_sha),
-            "repositories": candidate.get(
-                "allowed_repositories",
-                [entry["path"] for entry in candidate["repositories"]],
-            ),
+            "spec_sha": candidate["spec_sha"],
+            "repositories": candidate["allowed_repositories"],
         }
 
         def transition(temporary: Path) -> list[str]:
-            ensure_review_queue(temporary)
             move_todo(temporary, slug, "Review", "Authoring")
             claim_path = task_dir(temporary, slug) / "claim.json"
             write_json(claim_path, claim)
@@ -1879,7 +1852,6 @@ def reconcile_review(workspace: Path, slug: str) -> None:
             print(json.dumps({"slug": slug, "status": "Review", "pending": pending}, indent=2))
             return
         def transition(temporary: Path) -> list[str]:
-            ensure_review_queue(temporary)
             move_todo(temporary, slug, "Review", "Done")
             return ["TODO.md"]
 

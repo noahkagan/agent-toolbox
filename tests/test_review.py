@@ -12,6 +12,7 @@ import tempfile
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
+from typing import Callable
 
 
 root = Path(__file__).resolve().parents[1]
@@ -70,13 +71,43 @@ def bare_repo(directory: Path, name: str) -> tuple[Path, Path, str]:
     return bare, checkout, initial
 
 
-def legacy_todo(bucket: str) -> str:
+def todo(bucket: str) -> str:
     lines = ["# TODO", ""]
-    for name in task.LEGACY_QUEUE_ORDER:
+    for name in task.QUEUE_ORDER:
         lines.extend([f"## {name}", ""])
         if name == bucket:
             lines.extend([f"- [`{SLUG}`](scratch/{SLUG}/README.md)", ""])
     return "\n".join(lines)
+
+
+def rejects(action: Callable[[], object]) -> None:
+    try:
+        action()
+    except task.CoordinationError:
+        return
+    raise AssertionError("obsolete schema was accepted")
+
+
+obsolete_todo = todo("Authoring").replace("## Review\n\n", "")
+rejects(lambda: task.parse_todo(obsolete_todo))
+rejects(
+    lambda: task.validate_claim(
+        {"owner": "review-test@localhost", "claim_id": "claim"},
+        f"scratch/{SLUG}/claim.json",
+        {SLUG: "Authoring"},
+    )
+)
+rejects(
+    lambda: task.validate_candidate(
+        {"slug": SLUG, "author_owner": "review-test@localhost", "repositories": []},
+        SLUG,
+    )
+)
+rejects(
+    lambda: task.validate_manifest(
+        {"dependencies": [], "capabilities": {}, "resources": {}}, SLUG
+    )
+)
 
 
 def validation(candidate: dict[str, object], revision: str, readme: Path) -> dict[str, object]:
@@ -116,7 +147,7 @@ def world(directory: Path) -> tuple[Path, Path, dict[str, object]]:
     git(child_target, "push", "-u", "origin", f"candidate/{SLUG}")
 
     readme = workspace / f"scratch/{SLUG}/README.md"
-    write(workspace / "TODO.md", legacy_todo("Authoring"))
+    write(workspace / "TODO.md", todo("Authoring"))
     write(readme, "# Require review\n")
     write(workspace / f"scratch/{SLUG}/JOURNAL.md", "# Task Journal\n")
     write(
