@@ -1,14 +1,10 @@
 # agent-toolbox
 
-Personal agent instructions, skills, and task coordination tools.
-The repository keeps the same working conventions available to Codex, Claude Code,
-and other agents that support the shared skills directory.
+My opinionated toolbox for three recurring needs in my agent workflows:
 
-## Contents
-
-- `AGENTS.md`: global development instructions.
-- `skills/`: reusable skills for design, specifications, notes, workspaces, and task execution.
-- `nk`: a CLI for workspace setup and Git-backed task coordination.
+- Keep agent behavior consistent across tools and repositories.
+- Apply repeatable methods to design, specifications, notes, and implementation.
+- Make distributed task state durable, claimable, and verifiable.
 
 ## Install
 
