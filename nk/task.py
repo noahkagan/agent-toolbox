@@ -1634,7 +1634,27 @@ def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
             raise RemoteAccessError("GitHub review thread response is invalid") from exc
         for thread in nodes:
             if thread["comments"]["pageInfo"]["hasNextPage"]:
-                raise RemoteAccessError("GitHub review thread exceeds snapshot limit")
+                comment_query = """query($id:ID!,$endCursor:String){node(id:$id){... on PullRequestReviewThread {comments(first:100,after:$endCursor){nodes{author{login} body createdAt path line} pageInfo{hasNextPage endCursor}}}}}"""
+                comment_pages = gh(
+                    repo, "api", "graphql", "--paginate", "--slurp", "-f",
+                    f"query={comment_query}", "-F", f"id={thread['id']}",
+                )
+                if not isinstance(comment_pages, list):
+                    raise RemoteAccessError(
+                        "GitHub review thread comments response is invalid"
+                    )
+                comments = []
+                for comment_page in comment_pages:
+                    try:
+                        comments.extend(comment_page["data"]["node"]["comments"]["nodes"])
+                    except (KeyError, TypeError) as exc:
+                        raise RemoteAccessError(
+                            "GitHub review thread comments response is invalid"
+                        ) from exc
+                thread["comments"] = {
+                    "nodes": comments,
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
             threads.append(thread)
     return {
         "metadata": metadata,
@@ -1648,22 +1668,23 @@ def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
 def effective_exact_approval(snapshot: dict[str, Any], candidate_sha: str) -> bool:
     if snapshot["metadata"].get("reviewDecision") != "APPROVED":
         return False
-    latest: dict[str, dict[str, Any]] = {}
-    for review in snapshot["reviews"]:
-        login = (review.get("user") or {}).get("login")
-        if login:
-            latest[login] = review
     return any(
         review.get("state") == "APPROVED"
         and review.get("commit_id") == candidate_sha
-        for review in latest.values()
+        for review in snapshot["reviews"]
     )
 
 
-def review_complete(snapshot: dict[str, Any], candidate_sha: str) -> bool:
+def review_complete(
+    snapshot: dict[str, Any], binding: dict[str, Any], candidate_sha: str
+) -> bool:
     metadata = snapshot["metadata"]
     return (
-        metadata.get("state") == "MERGED"
+        metadata.get("number") == binding["number"]
+        and metadata.get("url") == binding["url"]
+        and metadata.get("baseRefName") == binding["target_branch"]
+        and metadata.get("headRefName") == binding["source_branch"]
+        and metadata.get("state") == "MERGED"
         and metadata.get("headRefOid") == candidate_sha
         and effective_exact_approval(snapshot, candidate_sha)
     )
@@ -1761,22 +1782,43 @@ def publish_review(workspace: Path, slug: str) -> None:
             bindings.append(
                 ensure_pull_request(repo, slug, entry, previous_by_path.get(entry["path"]))
             )
-        write_json(
-            review_path,
-            {
-                "slug": slug,
-                "candidate_digest": digest(candidate),
-                "repositories": bindings,
-            },
-        )
-        ensure_review_queue(workspace)
-        move_todo(workspace, slug, "Authoring", "Review")
-        claim_path = task_dir(workspace, slug) / "claim.json"
-        claim_path.unlink()
-        commit_and_push(
-            workspace, control, expected_sha, f"Review task {slug}",
-            ["TODO.md", relative_git_path(claim_path, workspace), relative_git_path(review_path, workspace)],
-        )
+        with tempfile.TemporaryDirectory(prefix="task-review-") as directory:
+            temporary = Path(directory)
+            git(workspace, "worktree", "add", "--detach", str(temporary), expected_sha)
+            try:
+                temporary_review = task_dir(temporary, slug) / "review.json"
+                write_json(
+                    temporary_review,
+                    {
+                        "slug": slug,
+                        "candidate_digest": digest(candidate),
+                        "repositories": bindings,
+                    },
+                )
+                ensure_review_queue(temporary)
+                move_todo(temporary, slug, "Authoring", "Review")
+                temporary_claim = task_dir(temporary, slug) / "claim.json"
+                temporary_claim.unlink()
+                git(
+                    temporary, "add", "--all", "--", "TODO.md",
+                    relative_git_path(temporary_claim, temporary),
+                    relative_git_path(temporary_review, temporary),
+                )
+                git(temporary, "commit", "-m", f"Review task {slug}")
+                generated = git(temporary, "rev-parse", "HEAD").stdout.strip()
+                pushed = push_control_ref(temporary, control, expected_sha)
+            finally:
+                git(workspace, "worktree", "remove", "--force", str(temporary))
+        if pushed.returncode:
+            detail = pushed.stderr.strip() or pushed.stdout.strip()
+            raise PublicationError(f"review transition push failed: {detail}")
+        remote = fetch_ref(workspace, control.ref)
+        if git(
+            workspace, "merge-base", "--is-ancestor", generated, remote,
+            check=False,
+        ).returncode:
+            raise PublicationError("published review transition is missing")
+        synchronize_checkout(workspace, control, remote)
     print(f"REVIEW\t{slug}\tReview")
 
 
@@ -1845,7 +1887,9 @@ def reconcile_review(workspace: Path, slug: str) -> None:
                 repo, "merge-base", "--is-ancestor", entry["candidate_sha"], target_sha,
                 check=False,
             ).returncode
-            if not review_complete(snapshot, entry["candidate_sha"]) or not contained:
+            if not review_complete(
+                snapshot, binding, entry["candidate_sha"]
+            ) or not contained:
                 pending.append(
                     {
                         "path": entry["path"],

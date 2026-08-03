@@ -180,6 +180,40 @@ def binding(candidate: dict[str, object]) -> dict[str, object]:
     }
 
 
+def add_repository(
+    directory: Path, workspace: Path, candidate: dict[str, object], name: str
+) -> Path:
+    _bare, _checkout, base = bare_repo(directory, name)
+    child = workspace / f"group/{name}"
+    run("git", "clone", str(directory / f"{name}.git"), str(child), cwd=directory)
+    git(child, "switch", "-c", f"candidate/{SLUG}")
+    write(child / "feature.txt", "candidate\n")
+    candidate_sha = commit(child, "Candidate")
+    git(child, "push", "-u", "origin", f"candidate/{SLUG}")
+    path = f"group/{name}"
+    candidate["allowed_repositories"].append(path)
+    candidate["repositories"].append(
+        {
+            "path": path, "target_ref": "refs/heads/main",
+            "base_sha": base, "candidate_sha": candidate_sha,
+        }
+    )
+    task_path = workspace / f"scratch/{SLUG}"
+    manifest = json.loads((task_path / "task.json").read_text())
+    manifest["repositories"].append(path)
+    write(task_path / "task.json", json.dumps(manifest))
+    write(task_path / "candidate.json", json.dumps(candidate))
+    (task_path / "validation.json").unlink()
+    revision = commit(workspace, "Submit multiple candidates")
+    write(
+        task_path / "validation.json",
+        json.dumps(validation(candidate, revision, task_path / "README.md")),
+    )
+    commit(workspace, "Validate multiple candidates")
+    git(workspace, "push", "origin", "main")
+    return child
+
+
 with tempfile.TemporaryDirectory() as temporary:
     directory = Path(temporary).resolve()
     workspace, child, candidate = world(directory)
@@ -199,6 +233,8 @@ with tempfile.TemporaryDirectory() as temporary:
 
         task.github_snapshot = lambda _repo, _binding: {
             "metadata": {
+                "number": 7, "url": "https://github.com/example/project/pull/7",
+                "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
                 "state": "OPEN", "headRefOid": candidate["repositories"][0]["candidate_sha"],
                 "reviewDecision": None,
             },
@@ -220,6 +256,8 @@ with tempfile.TemporaryDirectory() as temporary:
         candidate_sha = candidate["repositories"][0]["candidate_sha"]
         task.github_snapshot = lambda _repo, _binding: {
             "metadata": {
+                "number": 7, "url": "https://github.com/example/project/pull/7",
+                "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
                 "state": "MERGED", "headRefOid": candidate_sha,
                 "reviewDecision": "APPROVED",
             },
@@ -265,9 +303,135 @@ with tempfile.TemporaryDirectory() as temporary:
         os.environ.pop("NK_WORKSPACE_OWNER", None)
 
 
+with tempfile.TemporaryDirectory() as temporary:
+    directory = Path(temporary).resolve()
+    workspace, _child, candidate = world(directory)
+    add_repository(directory, workspace, candidate, "project-two")
+    original_pull = task.ensure_pull_request
+    failed = False
+
+    def partial_pull(
+        _repo: Path, _slug: str, entry: dict[str, str], _previous: object
+    ) -> dict[str, object]:
+        nonlocal_failed = entry["path"] == "group/project-two" and not failed
+        if nonlocal_failed:
+            raise task.RemoteAccessError("second forge unavailable")
+        number = 7 if entry["path"] == "group/project" else 8
+        name = entry["path"].split("/")[-1]
+        return {
+            "path": entry["path"], "forge": "github", "owner": "example",
+            "name": name, "number": number,
+            "url": f"https://github.com/example/{name}/pull/{number}",
+            "target_branch": "main", "source_branch": f"candidate/{SLUG}",
+            "candidate_sha": entry["candidate_sha"],
+        }
+
+    task.ensure_pull_request = partial_pull
+    try:
+        os.environ["NK_WORKSPACE_OWNER"] = "review-test@localhost"
+        try:
+            task.complete(workspace, SLUG)
+        except task.RemoteAccessError:
+            failed = True
+        else:
+            raise AssertionError("partial publication did not fail")
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Authoring"
+        assert (workspace / f"scratch/{SLUG}/claim.json").exists()
+        assert not (workspace / f"scratch/{SLUG}/review.json").exists()
+        task.complete(workspace, SLUG)
+        review = task.load_review(workspace, SLUG)
+        assert len(review["repositories"]) == 2
+    finally:
+        task.ensure_pull_request = original_pull
+        os.environ.pop("NK_WORKSPACE_OWNER", None)
+
+
+with tempfile.TemporaryDirectory() as temporary:
+    directory = Path(temporary).resolve()
+    workspace, _child, candidate = world(directory)
+    original_pull = task.ensure_pull_request
+    original_push = task.push_control_ref
+    task.ensure_pull_request = lambda _repo, _slug, _entry, _previous: binding(candidate)
+    task.push_control_ref = lambda *_args, **_kwargs: subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="", stderr="lease rejected"
+    )
+    try:
+        os.environ["NK_WORKSPACE_OWNER"] = "review-test@localhost"
+        before = git(workspace, "rev-parse", "HEAD")
+        try:
+            task.complete(workspace, SLUG)
+        except task.PublicationError:
+            pass
+        else:
+            raise AssertionError("control push failure did not stop publication")
+        assert git(workspace, "rev-parse", "HEAD") == before
+        assert not task.changed_paths(workspace)
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Authoring"
+        assert (workspace / f"scratch/{SLUG}/claim.json").exists()
+        assert not (workspace / f"scratch/{SLUG}/review.json").exists()
+    finally:
+        task.ensure_pull_request = original_pull
+        task.push_control_ref = original_push
+        os.environ.pop("NK_WORKSPACE_OWNER", None)
+
+
+original_gh = task.gh
+
+
+def paginated_gh(_repo: Path, *args: str) -> object:
+    if args[:2] == ("pr", "view"):
+        return {}
+    if "graphql" not in args:
+        return [[]]
+    query = next(arg for arg in args if arg.startswith("query="))
+    if "node(id:$id)" in query:
+        return [
+            {"data": {"node": {"comments": {"nodes": [{"body": "first"}]}}}},
+            {"data": {"node": {"comments": {"nodes": [{"body": "second"}]}}}},
+        ]
+    return [
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "thread", "isResolved": False,
+                                    "comments": {
+                                        "nodes": [],
+                                        "pageInfo": {"hasNextPage": True},
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]
+
+
+try:
+    task.gh = paginated_gh
+    snapshot = task.github_snapshot(
+        Path("."),
+        {"owner": "example", "name": "project", "number": 7},
+    )
+    assert [
+        comment["body"] for comment in snapshot["threads"][0]["comments"]["nodes"]
+    ] == ["first", "second"]
+finally:
+    task.gh = original_gh
+
+
 candidate_sha = "a" * 40
 base_snapshot = {
     "metadata": {
+        "number": 7, "url": "https://github.com/example/project/pull/7",
+        "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
         "state": "MERGED", "headRefOid": candidate_sha,
         "reviewDecision": "APPROVED",
     },
@@ -278,14 +442,19 @@ base_snapshot = {
         }
     ],
 }
-assert task.review_complete(base_snapshot, candidate_sha)
+review_binding = {
+    "number": 7, "url": "https://github.com/example/project/pull/7",
+    "target_branch": "main", "source_branch": f"candidate/{SLUG}",
+}
+assert task.review_complete(base_snapshot, review_binding, candidate_sha)
 for field, value in (
-    ("state", "OPEN"), ("reviewDecision", "CHANGES_REQUESTED"),
+    ("state", "OPEN"), ("state", "CLOSED"),
+    ("reviewDecision", None), ("reviewDecision", "CHANGES_REQUESTED"),
     ("headRefOid", "b" * 40),
 ):
     changed = json.loads(json.dumps(base_snapshot))
     changed["metadata"][field] = value
-    assert not task.review_complete(changed, candidate_sha)
+    assert not task.review_complete(changed, review_binding, candidate_sha)
 
 changed = json.loads(json.dumps(base_snapshot))
 changed["reviews"].append(
@@ -294,6 +463,24 @@ changed["reviews"].append(
         "commit_id": candidate_sha,
     }
 )
-assert not task.review_complete(changed, candidate_sha)
+changed["metadata"]["reviewDecision"] = "CHANGES_REQUESTED"
+assert not task.review_complete(changed, review_binding, candidate_sha)
+
+changed = json.loads(json.dumps(base_snapshot))
+changed["reviews"].append(
+    {
+        "user": {"login": "human"}, "state": "COMMENTED",
+        "commit_id": candidate_sha,
+    }
+)
+assert task.review_complete(changed, review_binding, candidate_sha)
+
+for field, value in (
+    ("number", 8), ("url", "https://github.com/example/project/pull/8"),
+    ("baseRefName", "other"), ("headRefName", "other"),
+):
+    changed = json.loads(json.dumps(base_snapshot))
+    changed["metadata"][field] = value
+    assert not task.review_complete(changed, review_binding, candidate_sha)
 
 print("external review lifecycle is valid")
