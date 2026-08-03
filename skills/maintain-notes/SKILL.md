@@ -1,11 +1,18 @@
 ---
 name: maintain-notes
-description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, auditing, or reviewing a note set whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time.
+description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, auditing, or reviewing notes whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time.
 ---
 
 # Maintain Notes
 
-Treat a note set as an implicit graph connected by Markdown links.
+Treat linked notes as an implicit graph.
+
+## Choose note location by ownership
+
+Before choosing a note location across repositories, identify the project that owns
+the work, decision, or uncertainty. Write there. Referenced repositories own
+notes only about their own work. If ownership is unclear, propose a location
+and ask.
 
 ## Write
 
@@ -19,7 +26,7 @@ Treat a note set as an implicit graph connected by Markdown links.
 
 ## Maintain the uncertainty frontier
 
-Explicitly define the note set's current uncertainty frontier: the boundary between settled product needs, knowledge, or decisions and undefined product needs or unanswered questions.
+Explicitly define the current uncertainty frontier: the boundary between settled product needs, knowledge, or decisions and undefined product needs or unanswered questions.
 
 The frontier may span documents. Give each undefined product need or unanswered question one canonical home and mark it clearly. Link it to relevant observations, experiments, sources, or decisions. Other documents reference that canonical statement without summarizing it.
 
@@ -35,7 +42,7 @@ Progressively advance the frontier as people define product needs, develop knowl
 
 ## Verify
 
-Apply these checks to the requested note set during an audit and to changed documents after an edit.
+Apply these checks to the requested notes during an audit and to changed documents after an edit.
 
 - Confirm each scoped document has one concept and no more than 500 body words.
 - Confirm each scoped document's frontmatter contains only `keywords`.
