@@ -101,10 +101,6 @@ def validation(candidate: dict[str, object], revision: str, readme: Path) -> dic
                 "artifacts": [],
             }
         ],
-        "agent_reviews": [
-            {"name": name, "verdict": "pass", "summary": "No blockers."}
-            for name in sorted(task.AGENT_REVIEW_NAMES)
-        ],
     }
 
 

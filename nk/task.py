@@ -1405,32 +1405,6 @@ def validate_task_records(data: Any) -> list[dict[str, Any]]:
     return result
 
 
-AGENT_REVIEW_NAMES = {
-    "simpler-solution", "ownership-complexity", "current-practices",
-}
-
-
-def validate_agent_reviews(data: Any) -> list[dict[str, str]]:
-    required = {"name", "verdict", "summary"}
-    if not isinstance(data, list) or len(data) != len(AGENT_REVIEW_NAMES):
-        raise CoordinationError("validation requires three agent reviews")
-    reviews: list[dict[str, str]] = []
-    for review in data:
-        if not isinstance(review, dict) or set(review) != required:
-            raise CoordinationError("agent review fields are invalid")
-        if (
-            review["name"] not in AGENT_REVIEW_NAMES
-            or review["verdict"] != "pass"
-            or not isinstance(review["summary"], str)
-            or not review["summary"].strip()
-        ):
-            raise CoordinationError("agent review result is invalid")
-        reviews.append(dict(review))
-    if {review["name"] for review in reviews} != AGENT_REVIEW_NAMES:
-        raise CoordinationError("agent review roles are incomplete")
-    return reviews
-
-
 def same_validation(existing: Any, current: dict[str, Any]) -> bool:
     if existing == current:
         return True
@@ -1462,7 +1436,6 @@ def _record_validation(
     slug: str,
     verdict: str | None,
     task_plan_records: Path | None,
-    agent_review_records: Path | None,
 ) -> None:
     with mutation_guard(workspace) as (control, expected_sha):
         buckets, readmes, current = task_claim(workspace, slug)
@@ -1470,10 +1443,9 @@ def _record_validation(
             raise CoordinationError("validation requires an Authoring task")
         candidate = load_candidate(workspace, slug)
         verify_candidate_refs(workspace, slug, candidate)
-        if task_plan_records is None or agent_review_records is None or verdict is None:
+        if task_plan_records is None or verdict is None:
             raise CoordinationError("task-plan validation arguments are required")
         records = validate_task_records(read_json(task_plan_records))
-        agent_reviews = validate_agent_reviews(read_json(agent_review_records))
         if verdict == "pass" and any(record["exit_status"] != 0 for record in records):
             raise CoordinationError("passing task-plan validation contains a failed command")
         definition = {
@@ -1492,7 +1464,6 @@ def _record_validation(
             "definition": definition,
             "verdict": outcome,
             "checks": checks,
-            "agent_reviews": agent_reviews,
         }
         paths = evidence_paths(workspace, slug)
         changed = [paths["validation.json"]]
@@ -1512,21 +1483,15 @@ def record_validation(
     slug: str,
     verdict: str | None,
     task_plan_records: Path | None,
-    agent_review_records: Path | None,
 ) -> None:
-    _record_validation(
-        workspace, slug, verdict, task_plan_records, agent_review_records
-    )
+    _record_validation(workspace, slug, verdict, task_plan_records)
 
 
 def load_validation(
     workspace: Path, slug: str, candidate: dict[str, Any]
 ) -> dict[str, Any]:
     data = read_json(evidence_paths(workspace, slug)["validation.json"])
-    required = {
-        "slug", "candidate_digest", "definition", "verdict", "checks",
-        "agent_reviews",
-    }
+    required = {"slug", "candidate_digest", "definition", "verdict", "checks"}
     if not isinstance(data, dict) or set(data) != required:
         raise CoordinationError("validation evidence fields are invalid")
     if data["slug"] != slug or data["candidate_digest"] != digest(candidate) or data["verdict"] != "pass":
@@ -1534,7 +1499,6 @@ def load_validation(
     definition = data["definition"]
     if not isinstance(definition, dict) or definition.get("kind") != "task_plan":
         raise CoordinationError("validation definition is invalid")
-    validate_agent_reviews(data["agent_reviews"])
     return data
 
 
@@ -2793,7 +2757,6 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--slug", required=True)
     command.add_argument("--verdict", choices=("pass", "regression", "unavailable"))
     command.add_argument("--task-plan-records", type=Path)
-    command.add_argument("--agent-review-records", type=Path)
     command = subparsers.add_parser("review-status")
     command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
@@ -2835,7 +2798,6 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "record-validation":
             record_validation(
                 workspace, args.slug, args.verdict, args.task_plan_records,
-                args.agent_review_records,
             )
         elif args.command == "complete":
             complete(workspace, args.slug)

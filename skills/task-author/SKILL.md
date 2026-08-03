@@ -114,10 +114,9 @@ shared ownership.
    concern or broadens the solution. Narrow mechanical, test-only, and
    documentation-only follow-ups do not restart unrelated reviews. Do not
    expand scope or manufacture work from aesthetic or speculative suggestions.
-8. After a clean independent pass, write one passing record for each required
-   review role and record validation with `nk task record-validation
-   --agent-review-records <file>`. Run `nk task complete`; it creates or updates
-   the exact-candidate pull requests, releases the claim, and stops in Review.
+8. After a clean independent pass, record validation with `nk task
+   record-validation`. Run `nk task complete`; it creates or updates the
+   exact-candidate pull requests, releases the claim, and stops in Review.
    Never approve or merge those requests. A later review turn uses `nk task
    review-status` to inspect authoritative forge state, `nk task review-repair`
    to resume requested changes in Authoring, or `nk task review-reconcile` to
