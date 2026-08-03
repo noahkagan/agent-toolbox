@@ -21,7 +21,7 @@ Treat a note set as an implicit graph connected by Markdown links. Add structure
 
 Explicitly define the note set's current uncertainty frontier: the boundary between settled product needs, knowledge, or decisions and undefined product needs or unanswered questions.
 
-Maintain the frontier in its own concept-named document. Let it own undefined product needs and unanswered questions. Link them to relevant observations, experiments, sources, or decisions. Other documents link to the frontier without summarizing it.
+The frontier may span documents. Give each undefined product need or unanswered question one canonical home and mark it clearly. Link it to relevant observations, experiments, sources, or decisions. Other documents reference that canonical statement without summarizing it.
 
 Progressively advance the frontier as people define product needs, develop knowledge, or make decisions. Define a product need only through an explicit product decision; never infer it from a technical design. Resolve another unknown through a referenced finding or explicit decision. Record the result in its canonical document, then update the frontier. Add sharper or newly exposed unknowns when warranted. Advancement does not require the frontier to shrink.
 
@@ -41,4 +41,4 @@ Apply these checks to the requested note set during an audit and to changed docu
 - Confirm each scoped document's frontmatter contains only `keywords`.
 - Check each scoped link and its target.
 - Search the scope for repeated claims and replace copies with canonical references.
-- Confirm the uncertainty frontier includes undefined product needs and reflects recorded knowledge and decisions without implicit closure.
+- Confirm undefined product needs and unanswered questions are clearly marked, linked, and not implicitly closed.
