@@ -23,8 +23,11 @@ from typing import Any, Iterable
 from . import workspace as workspace_registry
 
 
-QUEUE_ORDER = (
+LEGACY_QUEUE_ORDER = (
     "Blocked", "Authoring", "Ready", "Done", "Backlog", "Cancelled",
+)
+QUEUE_ORDER = (
+    "Blocked", "Authoring", "Review", "Ready", "Done", "Backlog", "Cancelled",
 )
 BUCKETS = set(QUEUE_ORDER)
 TASK_RE = re.compile(
@@ -36,7 +39,7 @@ CLAIM_FIELDS = {*LEGACY_CLAIM_FIELDS, "spec_sha", "repositories"}
 CANDIDATE_FIELDS = {"slug", "author_owner", "repositories"}
 CLAIMED_CANDIDATE_FIELDS = {*CANDIDATE_FIELDS, "spec_sha", "allowed_repositories"}
 EVIDENCE_NAMES = (
-    "candidate.json", "merge.json", "validation.json",
+    "candidate.json", "merge.json", "validation.json", "review.json",
 )
 MANIFEST_FIELDS = {"dependencies", "capabilities", "resources"}
 CAPABILITY_FIELDS = {"os", "architecture"}
@@ -62,6 +65,7 @@ CHECKPOINT_PROTECTED_PATTERNS = (
     ("scratch/<slug>/claim.json", "task claim", "nk task claim"),
     ("scratch/<slug>/candidate.json", "candidate binding", "nk task submit"),
     ("scratch/<slug>/validation.json", "validation evidence", "nk task record-validation"),
+    ("scratch/<slug>/review.json", "external review binding", "nk task complete"),
     ("scratch/<slug>/merge.json", "merge evidence", "nk task complete"),
     ("scratch/<slug>/progress.md", "Checkpoint input", "nk task checkpoint"),
     ("scratch/<slug>/blocker.md", "Blocked input", "nk task block"),
@@ -80,14 +84,6 @@ class RemoteAccessError(CoordinationError):
 
 
 class PublicationError(CoordinationError):
-    pass
-
-
-class TargetMoved(CoordinationError):
-    pass
-
-
-class MergeConflict(CoordinationError):
     pass
 
 
@@ -116,6 +112,35 @@ def remote_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return git(repo, *args)
     except CoordinationError as exc:
         raise RemoteAccessError(str(exc)) from exc
+
+
+def gh(repo: Path, *args: str) -> Any:
+    try:
+        result = subprocess.run(
+            ["gh", *args], cwd=repo, text=True, capture_output=True
+        )
+    except FileNotFoundError as exc:
+        raise RemoteAccessError("GitHub CLI is unavailable") from exc
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RemoteAccessError(f"gh {' '.join(args)} failed: {detail}")
+    try:
+        return json.loads(result.stdout) if result.stdout.strip() else None
+    except json.JSONDecodeError as exc:
+        raise RemoteAccessError("GitHub CLI returned invalid JSON") from exc
+
+
+def gh_text(repo: Path, *args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["gh", *args], cwd=repo, text=True, capture_output=True
+        )
+    except FileNotFoundError as exc:
+        raise RemoteAccessError("GitHub CLI is unavailable") from exc
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RemoteAccessError(f"gh {' '.join(args)} failed: {detail}")
+    return result.stdout.strip()
 
 
 def owner(workspace: Path) -> str:
@@ -340,10 +365,9 @@ def parse_todo(
             raise CoordinationError(f"task README is missing: {readme}")
         buckets[slug] = bucket
         readmes[slug] = readme
-    if headings != list(QUEUE_ORDER):
+    if headings not in (list(QUEUE_ORDER), list(LEGACY_QUEUE_ORDER)):
         raise CoordinationError(
-            "TODO queues must appear exactly once in this order: "
-            + ", ".join(QUEUE_ORDER)
+            "TODO queues must appear exactly once in canonical or legacy order"
         )
     return buckets, readmes
 
@@ -520,6 +544,19 @@ def move_todo(workspace: Path, slug: str, source: str, target: str) -> None:
     while target_index > heading_index + 1 and lines[target_index - 1] == "":
         target_index -= 1
     lines.insert(target_index, task_line)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def ensure_review_queue(workspace: Path) -> None:
+    path = workspace / "TODO.md"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if "## Review" in lines:
+        return
+    authoring = lines.index("## Authoring")
+    index = authoring + 1
+    while index < len(lines) and not lines[index].startswith("## "):
+        index += 1
+    lines[index:index] = ["## Review", ""]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1318,169 +1355,10 @@ def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
         paths = evidence_paths(workspace, slug)
         changed = list(paths.values())
         write_json(paths["candidate.json"], manifest)
-        remove_evidence(paths, EVIDENCE_NAMES[1:])
+        remove_evidence(paths, ("merge.json", "validation.json"))
         relative = [relative_git_path(path, workspace) for path in changed]
         commit_and_push(workspace, control, expected_sha, f"Submit task {slug}", relative)
         print(f"SUBMITTED\t{slug}\tAuthoring")
-
-
-def make_merge(repo: Path, target_sha: str, candidate_sha: str) -> str:
-    with tempfile.TemporaryDirectory(prefix="task-merge-") as directory:
-        worktree = Path(directory)
-        git(repo, "worktree", "add", "--detach", str(worktree), target_sha)
-        try:
-            merged = git(worktree, "merge", "--no-ff", "--no-edit", candidate_sha, check=False)
-            if merged.returncode:
-                conflicts = git(
-                    worktree, "diff", "--name-only", "--diff-filter=U",
-                    check=False,
-                ).stdout.splitlines()
-                if conflicts:
-                    raise MergeConflict(
-                        f"candidate merge conflicts: {', '.join(conflicts)}"
-                    )
-                detail = merged.stderr.strip() or merged.stdout.strip()
-                raise CoordinationError(f"candidate merge failed: {detail}")
-            merge_sha = git(worktree, "rev-parse", "HEAD").stdout.strip()
-            parents = git(worktree, "show", "-s", "--format=%P", merge_sha).stdout.split()
-            if parents != [target_sha, candidate_sha]:
-                raise CoordinationError("prepared merge does not have exact target and candidate parents")
-            return merge_sha
-        finally:
-            git(repo, "worktree", "remove", "--force", str(worktree), check=False)
-
-
-def _prepare(workspace: Path, slug: str) -> None:
-    with mutation_guard(workspace) as (control, expected_sha):
-        buckets, _, current = task_claim(workspace, slug)
-        if buckets.get(slug) != "Authoring":
-            raise CoordinationError("merge preparation requires an Authoring task")
-        ensure_claim_release(workspace, slug)
-        candidate = load_candidate(workspace, slug)
-        validation = load_validation(workspace, slug, candidate)
-        validation_binding_current(workspace, candidate, validation)
-        paths = evidence_paths(workspace, slug)
-        existing = (
-            load_merge(workspace, slug, candidate)
-            if paths["merge.json"].exists()
-            else None
-        )
-        merge_ref = f"refs/heads/validation/{slug}"
-        prepared: list[tuple[Path, dict[str, str], str, str, bool]] = []
-        published_paths: list[str] = []
-        for index, entry in enumerate(candidate["repositories"]):
-            _, repo = normalized_repository(workspace, entry["path"])
-            target_sha = fetch_ref(repo, entry["target_ref"])
-            fetched_candidate = fetch_ref(
-                repo, f"refs/heads/candidate/{slug}"
-            )
-            if fetched_candidate != entry["candidate_sha"]:
-                raise CoordinationError(f"candidate ref changed: {entry['path']}")
-            old = existing["repositories"][index] if existing is not None else None
-            if not git(
-                repo, "merge-base", "--is-ancestor",
-                entry["candidate_sha"], target_sha, check=False,
-            ).returncode:
-                prepared.append((
-                    repo,
-                    entry,
-                    old["target_sha"] if old is not None else target_sha,
-                    old["merge_sha"] if old is not None else target_sha,
-                    True,
-                ))
-                published_paths.append(entry["path"])
-                continue
-            if (
-                old is not None
-                and target_sha == old["target_sha"]
-                and remote_sha(repo, merge_ref) == old["merge_sha"]
-            ):
-                merge_sha = old["merge_sha"]
-            else:
-                try:
-                    merge_sha = make_merge(repo, target_sha, entry["candidate_sha"])
-                except MergeConflict as exc:
-                    published = (
-                        f" Already published: {', '.join(published_paths)}."
-                        if published_paths else ""
-                    )
-                    raise MergeConflict(f"{entry['path']}: {exc}.{published}") from exc
-            prepared.append((repo, entry, target_sha, merge_sha, False))
-        for repo, entry, target_sha, _, integrated in prepared:
-            observed = fetch_ref(repo, entry["target_ref"])
-            if integrated:
-                if git(
-                    repo, "merge-base", "--is-ancestor",
-                    entry["candidate_sha"], observed, check=False,
-                ).returncode:
-                    raise TargetMoved(entry["path"])
-                continue
-            if observed != target_sha:
-                raise TargetMoved(entry["path"])
-            if remote_sha(repo, f"refs/heads/candidate/{slug}") != entry["candidate_sha"]:
-                raise CoordinationError(
-                    f"candidate changed during merge preparation: {entry['path']}"
-                )
-        published_refs: list[Path] = []
-        for repo, entry, _, merge_sha, integrated in prepared:
-            if integrated:
-                continue
-            pushed = git(repo, "push", "origin", f"+{merge_sha}:{merge_ref}", check=False)
-            if pushed.returncode:
-                cleanup_failed = False
-                for published_repo in published_refs:
-                    cleanup = git(
-                        published_repo, "push", "origin", "--delete", merge_ref,
-                        check=False,
-                    )
-                    cleanup_failed = cleanup_failed or cleanup.returncode != 0
-                if cleanup_failed:
-                    raise CoordinationError(
-                        "prepared merge publication failed and temporary-ref cleanup requires manual intervention"
-                    )
-                raise CoordinationError(f"failed to publish prepared merge for {entry['path']}")
-            published_refs.append(repo)
-        data = {
-            "slug": slug,
-            "candidate_digest": digest(candidate),
-            "repositories": [
-                {
-                    "path": entry["path"],
-                    "target_ref": entry["target_ref"],
-                    "target_sha": target_sha,
-                    "candidate_sha": entry["candidate_sha"],
-                    "merge_sha": merge_sha,
-                }
-                for repo, entry, target_sha, merge_sha, _ in prepared
-            ],
-        }
-        if existing == data:
-            return
-        changed = [paths["merge.json"]]
-        write_json(paths["merge.json"], data)
-        relative = [relative_git_path(path, workspace) for path in changed]
-        commit_and_push(workspace, control, expected_sha, f"Prepare merge for {slug}", relative)
-
-
-def load_merge(workspace: Path, slug: str, candidate: dict[str, Any]) -> dict[str, Any]:
-    data = read_json(evidence_paths(workspace, slug)["merge.json"])
-    if not isinstance(data, dict) or set(data) != {"slug", "candidate_digest", "repositories"}:
-        raise CoordinationError("merge evidence fields are invalid")
-    if data.get("slug") != slug or data.get("candidate_digest") != digest(candidate):
-        raise CoordinationError("merge evidence does not match candidate")
-    repositories = data.get("repositories")
-    if not isinstance(repositories, list) or len(repositories) != len(candidate["repositories"]):
-        raise CoordinationError("merge repository set is invalid")
-    for expected, entry in zip(candidate["repositories"], repositories):
-        if not isinstance(entry, dict) or set(entry) != {
-            "path", "target_ref", "target_sha", "candidate_sha", "merge_sha"
-        }:
-            raise CoordinationError("merge repository entry is invalid")
-        if entry["path"] != expected["path"] or entry["target_ref"] != expected["target_ref"] or entry["candidate_sha"] != expected["candidate_sha"]:
-            raise CoordinationError("merge repository does not match candidate")
-        if SHA_RE.fullmatch(str(entry["target_sha"])) is None or SHA_RE.fullmatch(str(entry["merge_sha"])) is None:
-            raise CoordinationError("merge repository SHA is invalid")
-    return data
 
 
 def validate_task_records(data: Any) -> list[dict[str, Any]]:
@@ -1501,6 +1379,32 @@ def validate_task_records(data: Any) -> list[dict[str, Any]]:
             raise CoordinationError("task-plan artifacts are invalid")
         result.append(dict(record))
     return result
+
+
+AGENT_REVIEW_NAMES = {
+    "simpler-solution", "ownership-complexity", "current-practices",
+}
+
+
+def validate_agent_reviews(data: Any) -> list[dict[str, str]]:
+    required = {"name", "verdict", "summary"}
+    if not isinstance(data, list) or len(data) != len(AGENT_REVIEW_NAMES):
+        raise CoordinationError("validation requires three agent reviews")
+    reviews: list[dict[str, str]] = []
+    for review in data:
+        if not isinstance(review, dict) or set(review) != required:
+            raise CoordinationError("agent review fields are invalid")
+        if (
+            review["name"] not in AGENT_REVIEW_NAMES
+            or review["verdict"] != "pass"
+            or not isinstance(review["summary"], str)
+            or not review["summary"].strip()
+        ):
+            raise CoordinationError("agent review result is invalid")
+        reviews.append(dict(review))
+    if {review["name"] for review in reviews} != AGENT_REVIEW_NAMES:
+        raise CoordinationError("agent review roles are incomplete")
+    return reviews
 
 
 def same_validation(existing: Any, current: dict[str, Any]) -> bool:
@@ -1534,6 +1438,7 @@ def _record_validation(
     slug: str,
     verdict: str | None,
     task_plan_records: Path | None,
+    agent_review_records: Path | None,
 ) -> None:
     with mutation_guard(workspace) as (control, expected_sha):
         buckets, readmes, current = task_claim(workspace, slug)
@@ -1541,9 +1446,10 @@ def _record_validation(
             raise CoordinationError("validation requires an Authoring task")
         candidate = load_candidate(workspace, slug)
         verify_candidate_refs(workspace, slug, candidate)
-        if task_plan_records is None or verdict is None:
+        if task_plan_records is None or agent_review_records is None or verdict is None:
             raise CoordinationError("task-plan validation arguments are required")
         records = validate_task_records(read_json(task_plan_records))
+        agent_reviews = validate_agent_reviews(read_json(agent_review_records))
         if verdict == "pass" and any(record["exit_status"] != 0 for record in records):
             raise CoordinationError("passing task-plan validation contains a failed command")
         definition = {
@@ -1562,6 +1468,7 @@ def _record_validation(
             "definition": definition,
             "verdict": outcome,
             "checks": checks,
+            "agent_reviews": agent_reviews,
         }
         paths = evidence_paths(workspace, slug)
         changed = [paths["validation.json"]]
@@ -1581,15 +1488,21 @@ def record_validation(
     slug: str,
     verdict: str | None,
     task_plan_records: Path | None,
+    agent_review_records: Path | None,
 ) -> None:
-    _record_validation(workspace, slug, verdict, task_plan_records)
+    _record_validation(
+        workspace, slug, verdict, task_plan_records, agent_review_records
+    )
 
 
 def load_validation(
     workspace: Path, slug: str, candidate: dict[str, Any]
 ) -> dict[str, Any]:
     data = read_json(evidence_paths(workspace, slug)["validation.json"])
-    required = {"slug", "candidate_digest", "definition", "verdict", "checks"}
+    required = {
+        "slug", "candidate_digest", "definition", "verdict", "checks",
+        "agent_reviews",
+    }
     if not isinstance(data, dict) or set(data) != required:
         raise CoordinationError("validation evidence fields are invalid")
     if data["slug"] != slug or data["candidate_digest"] != digest(candidate) or data["verdict"] != "pass":
@@ -1597,6 +1510,7 @@ def load_validation(
     definition = data["definition"]
     if not isinstance(definition, dict) or definition.get("kind") != "task_plan":
         raise CoordinationError("validation definition is invalid")
+    validate_agent_reviews(data["agent_reviews"])
     return data
 
 
@@ -1618,239 +1532,341 @@ def validation_binding_current(
         raise CoordinationError("task-plan validation definition changed")
 
 
-def publish_completion(
-    workspace: Path,
-    control: ControlBranch,
-    expected_task_tree: str,
-    slug: str,
-) -> None:
-    for _ in range(10):
-        tree = fetch_ref(workspace, control.ref)
-        buckets, _ = parse_todo(text_from_tree(workspace, tree, "TODO.md"))
-        if buckets.get(slug) != "Authoring":
-            raise PublicationError("task changed during target publication")
-        current_task_tree = git(
-            workspace, "rev-parse", f"{tree}:scratch/{slug}"
-        ).stdout.strip()
-        if current_task_tree != expected_task_tree:
-            raise PublicationError("task changed during target publication")
-        dependencies = manifest_from_tree(
-            workspace, tree, slug, require_ready=True
-        )["dependencies"]
-        unresolved = [
-            dependency for dependency in dependencies
-            if buckets.get(dependency) != "Done"
-        ]
-        if unresolved:
-            raise PublicationError(
-                f"task {slug} has unresolved dependencies after target publication: "
-                f"{','.join(unresolved)}"
-            )
-        with tempfile.TemporaryDirectory(prefix="task-complete-") as directory:
-            temporary = Path(directory)
-            git(workspace, "worktree", "add", "--detach", str(temporary), tree)
-            try:
-                move_todo(temporary, slug, "Authoring", "Done")
-                claim_path = temporary / "scratch" / slug / "claim.json"
-                claim_path.unlink()
-                git(temporary, "add", "TODO.md", str(claim_path.relative_to(temporary)))
-                git(temporary, "commit", "-m", f"Complete task {slug}")
-                generated = git(temporary, "rev-parse", "HEAD").stdout.strip()
-                pushed = push_control_ref(temporary, control, tree)
-            finally:
-                git(workspace, "worktree", "remove", "--force", str(temporary))
-        observed = fetch_ref(workspace, control.ref)
-        observed_buckets, _ = parse_todo(
-            text_from_tree(workspace, observed, "TODO.md")
-        )
-        observed_claims = claims_from_tree(
-            workspace, observed, observed_buckets, strict=False
-        )
+GITHUB_REMOTE_RE = re.compile(
+    r"^(?:git@github\.com:|https://github\.com/)([^/]+)/([^/]+?)(?:\.git)?$"
+)
+REVIEW_FIELDS = {"slug", "candidate_digest", "repositories"}
+REVIEW_REPOSITORY_FIELDS = {
+    "path", "forge", "owner", "name", "number", "url", "target_branch",
+    "source_branch", "candidate_sha",
+}
+
+
+def github_repository(repo: Path) -> tuple[str, str]:
+    remote = git(repo, "remote", "get-url", "origin").stdout.strip()
+    match = GITHUB_REMOTE_RE.fullmatch(remote)
+    if match is None:
+        raise CoordinationError("only GitHub origin remotes support external review")
+    return match.group(1), match.group(2)
+
+
+def validate_review(data: Any, slug: str) -> dict[str, Any]:
+    if not isinstance(data, dict) or set(data) != REVIEW_FIELDS:
+        raise CoordinationError("external review evidence fields are invalid")
+    if data.get("slug") != slug or not isinstance(data.get("candidate_digest"), str):
+        raise CoordinationError("external review evidence identity is invalid")
+    repositories = data.get("repositories")
+    if not isinstance(repositories, list) or not repositories:
+        raise CoordinationError("external review evidence has no repositories")
+    seen = set()
+    for entry in repositories:
+        if not isinstance(entry, dict) or set(entry) != REVIEW_REPOSITORY_FIELDS:
+            raise CoordinationError("external review repository fields are invalid")
         if (
-            observed_buckets.get(slug) == "Done"
-            and not any(claim["slug"] == slug for claim in observed_claims)
-            and git(
-                workspace, "merge-base", "--is-ancestor", generated, observed,
-                check=False,
-            ).returncode == 0
+            entry["path"] in seen
+            or entry["forge"] != "github"
+            or type(entry["number"]) is not int
+            or entry["number"] < 1
+            or SHA_RE.fullmatch(str(entry["candidate_sha"])) is None
+            or not all(
+                isinstance(entry[field], str) and entry[field]
+                for field in REVIEW_REPOSITORY_FIELDS - {"number"}
+            )
         ):
-            synchronize_checkout(workspace, control, observed)
-            return
-        if pushed.returncode == 0:
-            raise PublicationError("published completion is missing from remote state")
-        if observed == tree:
-            detail = pushed.stderr.strip() or pushed.stdout.strip()
-            raise PublicationError(f"completion push failed: {detail}")
-    raise PublicationError("completion did not converge after concurrent updates")
+            raise CoordinationError("external review repository identity is invalid")
+        seen.add(entry["path"])
+    return data
 
 
-def restore_target_checkout(repo: Path, target_ref: str, target_sha: str) -> None:
-    branch = target_ref.removeprefix("refs/heads/")
-    ensure_clean(repo)
-    current = git(repo, "rev-parse", "HEAD").stdout.strip()
-    if git(
-        repo, "merge-base", "--is-ancestor", current, target_sha, check=False
-    ).returncode:
-        raise CoordinationError("child checkout contains unpublished work")
-    local = git(repo, "rev-parse", f"refs/heads/{branch}", check=False)
-    if local.returncode:
-        git(repo, "branch", branch, target_sha)
-    if current_branch(repo) != branch:
-        git(repo, "checkout", branch)
-    local_sha = git(repo, "rev-parse", "HEAD").stdout.strip()
-    if git(
-        repo, "merge-base", "--is-ancestor", local_sha, target_sha, check=False
-    ).returncode:
-        raise CoordinationError(f"child checkout diverged from {target_ref}")
-    if local_sha != target_sha:
-        git(repo, "merge", "--ff-only", target_sha)
-    ensure_clean(repo)
+def load_review(workspace: Path, slug: str) -> dict[str, Any]:
+    return validate_review(
+        read_json(task_dir(workspace, slug) / "review.json"), slug
+    )
 
 
-def cleanup_task_refs(
-    workspace: Path,
-    slug: str,
-    candidate: dict[str, Any],
-    merge: dict[str, Any],
-    *,
-    preserve_unpublished_candidates: bool = False,
-) -> None:
-    candidate_ref = f"refs/heads/candidate/{slug}"
-    merge_ref = f"refs/heads/validation/{slug}"
-    for candidate_entry_data, merge_entry in zip(
-        candidate["repositories"], merge["repositories"]
-    ):
-        _, repo = normalized_repository(workspace, candidate_entry_data["path"])
+def flatten_pages(data: Any, label: str) -> list[Any]:
+    if not isinstance(data, list) or any(not isinstance(page, list) for page in data):
+        raise RemoteAccessError(f"GitHub {label} response is invalid")
+    return [item for page in data for item in page]
+
+
+def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
+    repository = f"{binding['owner']}/{binding['name']}"
+    number = str(binding["number"])
+    metadata = gh(
+        repo, "pr", "view", number, "--repo", repository, "--json",
+        "number,url,state,baseRefName,headRefName,headRefOid,reviewDecision,mergedAt",
+    )
+    reviews = flatten_pages(
+        gh(
+            repo, "api", "--paginate", "--slurp",
+            f"repos/{repository}/pulls/{number}/reviews?per_page=100",
+        ),
+        "reviews",
+    )
+    comments = flatten_pages(
+        gh(
+            repo, "api", "--paginate", "--slurp",
+            f"repos/{repository}/issues/{number}/comments?per_page=100",
+        ),
+        "comments",
+    )
+    review_comments = flatten_pages(
+        gh(
+            repo, "api", "--paginate", "--slurp",
+            f"repos/{repository}/pulls/{number}/comments?per_page=100",
+        ),
+        "review comments",
+    )
+    query = """query($owner:String!,$name:String!,$number:Int!,$endCursor:String){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100,after:$endCursor){nodes{id isResolved comments(first:100){nodes{author{login} body createdAt path line} pageInfo{hasNextPage}}} pageInfo{hasNextPage endCursor}}}}}"""
+    thread_pages = gh(
+        repo, "api", "graphql", "--paginate", "--slurp", "-f", f"query={query}",
+        "-F", f"owner={binding['owner']}", "-F", f"name={binding['name']}",
+        "-F", f"number={number}",
+    )
+    if not isinstance(thread_pages, list):
+        raise RemoteAccessError("GitHub review thread response is invalid")
+    threads: list[Any] = []
+    for page in thread_pages:
         try:
-            integrated = True
-            if preserve_unpublished_candidates:
-                target = remote_sha(repo, merge_entry["target_ref"])
-                integrated = target is not None and not git(
-                    repo, "merge-base", "--is-ancestor",
-                    candidate_entry_data["candidate_sha"], target, check=False,
-                ).returncode
-            for ref, expected in (
-                (candidate_ref, candidate_entry_data["candidate_sha"]),
-                (merge_ref, merge_entry["merge_sha"]),
-            ):
-                if ref == candidate_ref and not integrated:
-                    continue
-                if remote_sha(repo, ref) == expected:
-                    git(
-                        repo, "push", f"--force-with-lease={ref}:{expected}",
-                        "origin", f":{ref}", check=False,
-                    )
-        except CoordinationError:
-            pass
+            nodes = page["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+        except (KeyError, TypeError) as exc:
+            raise RemoteAccessError("GitHub review thread response is invalid") from exc
+        for thread in nodes:
+            if thread["comments"]["pageInfo"]["hasNextPage"]:
+                raise RemoteAccessError("GitHub review thread exceeds snapshot limit")
+            threads.append(thread)
+    return {
+        "metadata": metadata,
+        "reviews": reviews,
+        "comments": comments,
+        "review_comments": review_comments,
+        "threads": threads,
+    }
 
 
-def _complete(workspace: Path, slug: str) -> None:
+def effective_exact_approval(snapshot: dict[str, Any], candidate_sha: str) -> bool:
+    if snapshot["metadata"].get("reviewDecision") != "APPROVED":
+        return False
+    latest: dict[str, dict[str, Any]] = {}
+    for review in snapshot["reviews"]:
+        login = (review.get("user") or {}).get("login")
+        if login:
+            latest[login] = review
+    return any(
+        review.get("state") == "APPROVED"
+        and review.get("commit_id") == candidate_sha
+        for review in latest.values()
+    )
+
+
+def review_complete(snapshot: dict[str, Any], candidate_sha: str) -> bool:
+    metadata = snapshot["metadata"]
+    return (
+        metadata.get("state") == "MERGED"
+        and metadata.get("headRefOid") == candidate_sha
+        and effective_exact_approval(snapshot, candidate_sha)
+    )
+
+
+def ensure_pull_request(
+    repo: Path,
+    slug: str,
+    candidate_entry_data: dict[str, str],
+    previous: dict[str, Any] | None,
+) -> dict[str, Any]:
+    owner_name = github_repository(repo)
+    owner, name = owner_name
+    repository = f"{owner}/{name}"
+    source = f"candidate/{slug}"
+    target = candidate_entry_data["target_ref"].removeprefix("refs/heads/")
+    number = previous["number"] if previous is not None else None
+    if number is None:
+        matches = gh(
+            repo, "pr", "list", "--repo", repository, "--state", "all",
+            "--head", source, "--base", target, "--limit", "100", "--json",
+            "number,state",
+        )
+        if len(matches) > 1:
+            raise CoordinationError(f"multiple pull requests match {candidate_entry_data['path']}")
+        number = matches[0]["number"] if matches else None
+    if number is None:
+        gh_text(
+            repo, "pr", "create", "--repo", repository, "--base", target,
+            "--head", source, "--title", slug,
+            "--body", f"Task: `{slug}`\n\nCandidate: `{candidate_entry_data['candidate_sha']}`",
+        )
+        matches = gh(
+            repo, "pr", "list", "--repo", repository, "--state", "all",
+            "--head", source, "--base", target, "--limit", "100", "--json",
+            "number,state",
+        )
+        if len(matches) != 1:
+            raise RemoteAccessError("created pull request could not be identified")
+        number = matches[0]["number"]
+    else:
+        state = gh(
+            repo, "pr", "view", str(number), "--repo", repository, "--json", "state"
+        )["state"]
+        if state == "CLOSED":
+            gh_text(repo, "pr", "reopen", str(number), "--repo", repository)
+        gh_text(
+            repo, "pr", "edit", str(number), "--repo", repository,
+            "--base", target, "--title", slug,
+            "--body", f"Task: `{slug}`\n\nCandidate: `{candidate_entry_data['candidate_sha']}`",
+        )
+    metadata = gh(
+        repo, "pr", "view", str(number), "--repo", repository, "--json",
+        "number,url,baseRefName,headRefName,headRefOid",
+    )
+    if (
+        metadata["baseRefName"] != target
+        or metadata["headRefName"] != source
+        or metadata["headRefOid"] != candidate_entry_data["candidate_sha"]
+    ):
+        raise CoordinationError("pull request does not contain the exact candidate")
+    return {
+        "path": candidate_entry_data["path"],
+        "forge": "github",
+        "owner": owner,
+        "name": name,
+        "number": metadata["number"],
+        "url": metadata["url"],
+        "target_branch": target,
+        "source_branch": source,
+        "candidate_sha": candidate_entry_data["candidate_sha"],
+    }
+
+
+def publish_review(workspace: Path, slug: str) -> None:
     with mutation_guard(workspace) as (control, expected_sha):
-        buckets, _, current = task_claim(workspace, slug)
+        buckets, _, _ = task_claim(workspace, slug)
         if buckets.get(slug) != "Authoring":
-            raise CoordinationError("completion requires an Authoring task")
-        dependencies = local_manifest(workspace, slug, require_ready=True)["dependencies"]
-        unresolved = [
-            dependency for dependency in dependencies
-            if buckets.get(dependency) != "Done"
-        ]
-        if unresolved:
-            raise CoordinationError(
-                f"task {slug} has unresolved dependencies: {','.join(unresolved)}"
-            )
+            raise CoordinationError("review publication requires an Authoring task")
+        ensure_claim_release(workspace, slug)
         candidate = load_candidate(workspace, slug)
-        merge = load_merge(workspace, slug, candidate)
+        verify_candidate_refs(workspace, slug, candidate)
         validation = load_validation(workspace, slug, candidate)
-        expected_task_tree = git(
-            workspace, "rev-parse", f"{expected_sha}:scratch/{slug}"
-        ).stdout.strip()
         validation_binding_current(workspace, candidate, validation)
-        merge_ref = f"refs/heads/validation/{slug}"
-        for candidate_entry_data, merge_entry in zip(
-            candidate["repositories"], merge["repositories"]
-        ):
-            _, repo = normalized_repository(workspace, candidate_entry_data["path"])
-            if remote_sha(
-                repo, f"refs/heads/candidate/{slug}"
-            ) != candidate_entry_data["candidate_sha"]:
-                raise CoordinationError(
-                    f"candidate changed: {candidate_entry_data['path']}"
-                )
-            observed_target = remote_sha(repo, merge_entry["target_ref"])
-            if observed_target is not None and not git(
-                repo, "merge-base", "--is-ancestor",
-                candidate_entry_data["candidate_sha"], observed_target,
-                check=False,
-            ).returncode:
-                continue
-            if observed_target != merge_entry["target_sha"]:
-                raise TargetMoved(candidate_entry_data["path"])
-            if remote_sha(repo, merge_ref) != merge_entry["merge_sha"]:
-                raise CoordinationError(
-                    f"prepared merge changed: {candidate_entry_data['path']}"
-                )
-            pushed = git(
-                repo, "push", "origin",
-                f"{merge_entry['merge_sha']}:{merge_entry['target_ref']}", check=False,
+        review_path = task_dir(workspace, slug) / "review.json"
+        previous_by_path: dict[str, Any] = {}
+        if review_path.exists():
+            previous = load_review(workspace, slug)
+            previous_by_path = {
+                entry["path"]: entry for entry in previous["repositories"]
+            }
+        bindings = []
+        for entry in candidate["repositories"]:
+            _, repo = normalized_repository(workspace, entry["path"])
+            bindings.append(
+                ensure_pull_request(repo, slug, entry, previous_by_path.get(entry["path"]))
             )
-            observed_target = remote_sha(repo, merge_entry["target_ref"])
-            if observed_target is not None and not git(
-                repo, "merge-base", "--is-ancestor",
-                candidate_entry_data["candidate_sha"], observed_target,
+        write_json(
+            review_path,
+            {
+                "slug": slug,
+                "candidate_digest": digest(candidate),
+                "repositories": bindings,
+            },
+        )
+        ensure_review_queue(workspace)
+        move_todo(workspace, slug, "Authoring", "Review")
+        claim_path = task_dir(workspace, slug) / "claim.json"
+        claim_path.unlink()
+        commit_and_push(
+            workspace, control, expected_sha, f"Review task {slug}",
+            ["TODO.md", relative_git_path(claim_path, workspace), relative_git_path(review_path, workspace)],
+        )
+    print(f"REVIEW\t{slug}\tReview")
+
+
+def inspect_review(workspace: Path, slug: str) -> None:
+    buckets, _ = parse_todo((workspace / "TODO.md").read_text(encoding="utf-8"))
+    if buckets.get(slug) != "Review":
+        raise CoordinationError("review inspection requires a Review task")
+    review = load_review(workspace, slug)
+    snapshots = []
+    for binding in review["repositories"]:
+        _, repo = normalized_repository(workspace, binding["path"])
+        snapshots.append({"binding": binding, "snapshot": github_snapshot(repo, binding)})
+    print(json.dumps({"slug": slug, "repositories": snapshots}, indent=2))
+
+
+def repair_review(workspace: Path, slug: str) -> None:
+    with mutation_guard(workspace) as (control, expected_sha):
+        buckets, _, claims = local_state(workspace)
+        if buckets.get(slug) != "Review":
+            raise CoordinationError("repair requires a Review task")
+        if owned_claims(claims, owner(workspace)):
+            raise CoordinationError("workspace already owns an Authoring task")
+        candidate = load_candidate(workspace, slug)
+        load_review(workspace, slug)
+        ensure_review_queue(workspace)
+        move_todo(workspace, slug, "Review", "Authoring")
+        claim_path = task_dir(workspace, slug) / "claim.json"
+        write_json(
+            claim_path,
+            {
+                "owner": owner(workspace),
+                "claim_id": uuid.uuid4().hex,
+                "spec_sha": candidate.get("spec_sha", expected_sha),
+                "repositories": candidate.get(
+                    "allowed_repositories",
+                    [entry["path"] for entry in candidate["repositories"]],
+                ),
+            },
+        )
+        commit_and_push(
+            workspace, control, expected_sha, f"Repair task {slug}",
+            ["TODO.md", relative_git_path(claim_path, workspace)],
+        )
+    print(f"REPAIR\t{slug}\tAuthoring")
+
+
+def reconcile_review(workspace: Path, slug: str) -> None:
+    with mutation_guard(workspace) as (control, expected_sha):
+        buckets, _ = parse_todo((workspace / "TODO.md").read_text(encoding="utf-8"))
+        if buckets.get(slug) != "Review":
+            raise CoordinationError("reconciliation requires a Review task")
+        candidate = load_candidate(workspace, slug)
+        review = load_review(workspace, slug)
+        if review["candidate_digest"] != digest(candidate):
+            raise CoordinationError("external review does not match candidate")
+        bindings = {entry["path"]: entry for entry in review["repositories"]}
+        pending = []
+        for entry in candidate["repositories"]:
+            binding = bindings.get(entry["path"])
+            if binding is None or binding["candidate_sha"] != entry["candidate_sha"]:
+                raise CoordinationError("external review repository does not match candidate")
+            _, repo = normalized_repository(workspace, entry["path"])
+            snapshot = github_snapshot(repo, binding)
+            target_sha = fetch_ref(repo, entry["target_ref"])
+            contained = not git(
+                repo, "merge-base", "--is-ancestor", entry["candidate_sha"], target_sha,
                 check=False,
-            ).returncode:
-                continue
-            if observed_target != merge_entry["target_sha"]:
-                raise TargetMoved(candidate_entry_data["path"])
-            if observed_target != merge_entry["merge_sha"]:
-                detail = pushed.stderr.strip() or pushed.stdout.strip()
-                raise CoordinationError(
-                    f"target publication failed: {candidate_entry_data['path']}: {detail}"
+            ).returncode
+            if not review_complete(snapshot, entry["candidate_sha"]) or not contained:
+                pending.append(
+                    {
+                        "path": entry["path"],
+                        "state": snapshot["metadata"].get("state"),
+                        "reviewDecision": snapshot["metadata"].get("reviewDecision"),
+                        "candidateContained": contained,
+                    }
                 )
-        for candidate_entry_data, merge_entry in zip(
-            candidate["repositories"], merge["repositories"]
-        ):
-            _, repo = normalized_repository(workspace, candidate_entry_data["path"])
-            if remote_sha(
-                repo, f"refs/heads/candidate/{slug}"
-            ) != candidate_entry_data["candidate_sha"]:
-                raise CoordinationError(
-                    f"candidate changed: {candidate_entry_data['path']}"
-                )
-            target_sha = fetch_ref(repo, merge_entry["target_ref"])
-            if git(
-                repo, "merge-base", "--is-ancestor",
-                candidate_entry_data["candidate_sha"], target_sha,
-                check=False,
-            ).returncode:
-                raise TargetMoved(candidate_entry_data["path"])
-            restore_target_checkout(
-                repo, merge_entry["target_ref"], target_sha
-            )
-        publish_completion(workspace, control, expected_task_tree, slug)
-        cleanup_task_refs(workspace, slug, candidate, merge)
-        print(f"COMPLETED\t{slug}\tDone")
+        if pending:
+            print(json.dumps({"slug": slug, "status": "Review", "pending": pending}, indent=2))
+            return
+        ensure_review_queue(workspace)
+        move_todo(workspace, slug, "Review", "Done")
+        commit_and_push(
+            workspace, control, expected_sha, f"Complete task {slug}", ["TODO.md"]
+        )
+    print(f"COMPLETED\t{slug}\tDone")
 
 
 def complete(workspace: Path, slug: str) -> None:
-    while True:
-        try:
-            _prepare(workspace, slug)
-            _complete(workspace, slug)
-            return
-        except TargetMoved:
-            continue
-        except MergeConflict as exc:
-            paths = evidence_paths(workspace, slug)
-            if paths["merge.json"].exists():
-                candidate = load_candidate(workspace, slug)
-                merge = load_merge(workspace, slug, candidate)
-                cleanup_task_refs(
-                    workspace, slug, candidate, merge,
-                    preserve_unpublished_candidates=True,
-                )
-            print(f"CONFLICT\t{slug}\tAuthoring\t{exc}")
-            return
+    publish_review(workspace, slug)
 
 
 def local_manifest(workspace: Path, slug: str, *, require_ready: bool = False) -> dict[str, Any]:
@@ -2717,6 +2733,16 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--slug", required=True)
     command.add_argument("--verdict", choices=("pass", "regression", "unavailable"))
     command.add_argument("--task-plan-records", type=Path)
+    command.add_argument("--agent-review-records", type=Path)
+    command = subparsers.add_parser("review-status")
+    command.add_argument("--workspace")
+    command.add_argument("--slug", required=True)
+    command = subparsers.add_parser("review-repair")
+    command.add_argument("--workspace")
+    command.add_argument("--slug", required=True)
+    command = subparsers.add_parser("review-reconcile")
+    command.add_argument("--workspace")
+    command.add_argument("--slug", required=True)
     return result
 
 
@@ -2749,9 +2775,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "record-validation":
             record_validation(
                 workspace, args.slug, args.verdict, args.task_plan_records,
+                args.agent_review_records,
             )
         elif args.command == "complete":
             complete(workspace, args.slug)
+        elif args.command == "review-status":
+            inspect_review(workspace, args.slug)
+        elif args.command == "review-repair":
+            repair_review(workspace, args.slug)
+        elif args.command == "review-reconcile":
+            reconcile_review(workspace, args.slug)
         elif args.command == "checkpoint":
             checkpoint(workspace, args.slug)
         elif args.command == "block":
