@@ -66,7 +66,7 @@ with tempfile.TemporaryDirectory() as directory:
 
     child = workspace / "projects/example/child"
     child.mkdir(parents=True)
-    assert run("workspace", "root", cwd=child).stdout.strip() == str(workspace)
+    assert run("workspace", "root", cwd=child).stdout.strip() == str(workspace.resolve())
     assert "STATUS\t2026-08-01-example\tReady" in run(
         "task", "status", "--slug", "2026-08-01-example", cwd=child
     ).stdout
@@ -100,7 +100,7 @@ with tempfile.TemporaryDirectory() as directory:
     run("workspace", "init", nested, cwd=temporary)
     nested_child = nested / "child"
     nested_child.mkdir()
-    assert run("workspace", "root", cwd=nested_child).stdout.strip() == str(nested)
+    assert run("workspace", "root", cwd=nested_child).stdout.strip() == str(nested.resolve())
 
     other = workspace / "keep.txt"
     other.write_text("keep\n")
@@ -158,7 +158,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert rejected.returncode == 1
     assert "workspace registry is incomplete" in rejected.stderr
     run("workspace", "init", incomplete, cwd=temporary)
-    assert run("workspace", "root", incomplete, cwd=temporary).stdout.strip() == str(incomplete)
+    assert run("workspace", "root", incomplete, cwd=temporary).stdout.strip() == str(incomplete.resolve())
 
     invalid = temporary / "invalid"
     repository(invalid)

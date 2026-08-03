@@ -9,7 +9,7 @@ Advance exactly one already claimed task, supplied as `$task-author <slug>`, for
 one agent turn. The surrounding caller reinvokes this skill until the task
 reaches a durable route.
 Do not claim or select work, poll a queue, or continue to another task.
-Every successful turn must end in Done, Blocked, Cancelled, or a Checkpoint.
+Every successful turn must end in Review, Done, Blocked, Cancelled, or a Checkpoint.
 
 ## The ladder
 
@@ -114,10 +114,13 @@ shared ownership.
    concern or broadens the solution. Narrow mechanical, test-only, and
    documentation-only follow-ups do not restart unrelated reviews. Do not
    expand scope or manufacture work from aesthetic or speculative suggestions.
-8. After a clean independent pass, record validation with
-   `nk task record-validation`, then run `nk task complete`. Stop after the task
-   reaches Done, Blocked, or Cancelled. A merge conflict remains claimed
-   Authoring work for repair.
+8. After a clean independent pass, record validation with `nk task
+   record-validation`. Run `nk task complete`; it creates or updates the
+   exact-candidate pull requests, releases the claim, and stops in Review.
+   Never approve or merge those requests. A later review turn uses `nk task
+   review-status` to inspect authoritative forge state, `nk task review-repair`
+   to resume requested changes in Authoring, or `nk task review-reconcile` to
+   reach Done after exact-candidate external approval and merge.
 
 Before yielding while the task remains Authoring, write a nonempty Markdown
 fragment without H1 or H2 headings to `scratch/<slug>/progress.md`, then run:
@@ -131,7 +134,7 @@ Checkpoint. Commit retained companions beneath the claimed task directory, and
 remove only unrelated or transient files. Do not push merely to Checkpoint;
 the Authoring claim still protects those local commits.
 
-Before Blocked, Cancelled, or any other route that releases the claim, push and
+Before Review, Blocked, Cancelled, or any other route that releases the claim, push and
 reconcile every retained candidate commit. A release failure remains Authoring
 work and must preserve the transition input for retry.
 

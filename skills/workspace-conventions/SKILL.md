@@ -75,14 +75,16 @@ Tracker buckets are lifecycle states in operational scan order:
 
 - `Blocked`: an external impediment or demonstrated failure prevents progress.
 - `Authoring`: an author owns the task.
+- `Review`: exact candidates await external approval and merge; no author owns the task.
 - `Ready`: complete work is available for an author.
 - `Done`: validated work has no remaining action.
 - `Backlog`: described work is not ready.
 - `Cancelled`: intentionally closed without completion.
 
-The principal lifecycle is Backlog → Ready → Authoring → Done. Review and
-repair are internal to Authoring. Automated coordination is optional; placement remains useful on
-its own.
+The principal lifecycle is Backlog → Ready → Authoring → Review → Done.
+Independent agent review is internal to Authoring. External review is the
+unclaimed Review state. Automated coordination is optional; placement remains
+useful on its own.
 
 An unsatisfied task dependency is not a `Blocked` lifecycle state. Keep a fully
 specified dependent task in `Ready`; `task.json` dependency eligibility keeps
@@ -108,8 +110,7 @@ unconstrained, except a coordinated task requires at least one repository.
 Declare the least restrictive requirements that can complete the whole task:
 omit `os` when any eligible platform can do so, and request a GPU only when task
 verification uses it. Split work into dependent tasks when different phases
-require different or multiple platforms. Legacy three-field manifests remain
-readable.
+require different or multiple platforms.
 
 Workspace unit:
 
