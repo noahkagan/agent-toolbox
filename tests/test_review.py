@@ -474,7 +474,15 @@ with tempfile.TemporaryDirectory() as temporary:
         os.environ.pop("NK_WORKSPACE_OWNER", None)
 
 
-original_gh = task.gh
+json_source = task.gh_text
+try:
+    task.gh_text = lambda _repo, *_args: '{"value": 7}'
+    assert task.gh_json(Path("."), "api") == {"value": 7}
+finally:
+    task.gh_text = json_source
+
+
+original_gh_json = task.gh_json
 
 
 def paginated_gh(_repo: Path, *args: str) -> object:
@@ -514,7 +522,7 @@ def paginated_gh(_repo: Path, *args: str) -> object:
 
 
 try:
-    task.gh = paginated_gh
+    task.gh_json = paginated_gh
     snapshot = task.github_snapshot(
         Path("."),
         {"owner": "example", "name": "project", "number": 7},
@@ -524,10 +532,10 @@ try:
     ] == ["first", "second"]
     assert snapshot["comments"] == [{"body": "issue discussion"}]
 finally:
-    task.gh = original_gh
+    task.gh_json = original_gh_json
 
 
-original_gh = task.gh
+original_gh_json = task.gh_json
 original_gh_text = task.gh_text
 original_repository = task.github_repository
 forge_commands = []
@@ -556,7 +564,7 @@ def forge_text(_repo: Path, *args: str) -> str:
 
 
 try:
-    task.gh = forge_gh
+    task.gh_json = forge_gh
     task.gh_text = forge_text
     task.github_repository = lambda _repo: ("example", "project")
     candidate_entry = {
@@ -575,7 +583,7 @@ try:
         for command in forge_commands
     )
 finally:
-    task.gh = original_gh
+    task.gh_json = original_gh_json
     task.gh_text = original_gh_text
     task.github_repository = original_repository
 

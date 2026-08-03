@@ -114,22 +114,6 @@ def remote_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
         raise RemoteAccessError(str(exc)) from exc
 
 
-def gh(repo: Path, *args: str) -> Any:
-    try:
-        result = subprocess.run(
-            ["gh", *args], cwd=repo, text=True, capture_output=True
-        )
-    except FileNotFoundError as exc:
-        raise RemoteAccessError("GitHub CLI is unavailable") from exc
-    if result.returncode:
-        detail = result.stderr.strip() or result.stdout.strip()
-        raise RemoteAccessError(f"gh {' '.join(args)} failed: {detail}")
-    try:
-        return json.loads(result.stdout) if result.stdout.strip() else None
-    except json.JSONDecodeError as exc:
-        raise RemoteAccessError("GitHub CLI returned invalid JSON") from exc
-
-
 def gh_text(repo: Path, *args: str) -> str:
     try:
         result = subprocess.run(
@@ -141,6 +125,14 @@ def gh_text(repo: Path, *args: str) -> str:
         detail = result.stderr.strip() or result.stdout.strip()
         raise RemoteAccessError(f"gh {' '.join(args)} failed: {detail}")
     return result.stdout.strip()
+
+
+def gh_json(repo: Path, *args: str) -> Any:
+    output = gh_text(repo, *args)
+    try:
+        return json.loads(output) if output else None
+    except json.JSONDecodeError as exc:
+        raise RemoteAccessError("GitHub CLI returned invalid JSON") from exc
 
 
 def owner(workspace: Path) -> str:
@@ -1625,33 +1617,33 @@ def flatten_pages(data: Any, label: str) -> list[Any]:
 def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
     repository = f"{binding['owner']}/{binding['name']}"
     number = str(binding["number"])
-    metadata = gh(
+    metadata = gh_json(
         repo, "pr", "view", number, "--repo", repository, "--json",
         "number,url,state,baseRefName,headRefName,headRefOid,reviewDecision,mergedAt",
     )
     reviews = flatten_pages(
-        gh(
+        gh_json(
             repo, "api", "--paginate", "--slurp",
             f"repos/{repository}/pulls/{number}/reviews?per_page=100",
         ),
         "reviews",
     )
     comments = flatten_pages(
-        gh(
+        gh_json(
             repo, "api", "--paginate", "--slurp",
             f"repos/{repository}/issues/{number}/comments?per_page=100",
         ),
         "comments",
     )
     review_comments = flatten_pages(
-        gh(
+        gh_json(
             repo, "api", "--paginate", "--slurp",
             f"repos/{repository}/pulls/{number}/comments?per_page=100",
         ),
         "review comments",
     )
     query = """query($owner:String!,$name:String!,$number:Int!,$endCursor:String){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100,after:$endCursor){nodes{id isResolved comments(first:100){nodes{author{login} body createdAt path line} pageInfo{hasNextPage}}} pageInfo{hasNextPage endCursor}}}}}"""
-    thread_pages = gh(
+    thread_pages = gh_json(
         repo, "api", "graphql", "--paginate", "--slurp", "-f", f"query={query}",
         "-F", f"owner={binding['owner']}", "-F", f"name={binding['name']}",
         "-F", f"number={number}",
@@ -1667,7 +1659,7 @@ def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
         for thread in nodes:
             if thread["comments"]["pageInfo"]["hasNextPage"]:
                 comment_query = """query($id:ID!,$endCursor:String){node(id:$id){... on PullRequestReviewThread {comments(first:100,after:$endCursor){nodes{author{login} body createdAt path line} pageInfo{hasNextPage endCursor}}}}}"""
-                comment_pages = gh(
+                comment_pages = gh_json(
                     repo, "api", "graphql", "--paginate", "--slurp", "-f",
                     f"query={comment_query}", "-F", f"id={thread['id']}",
                 )
@@ -1737,7 +1729,7 @@ def ensure_pull_request(
     target = candidate_entry_data["target_ref"].removeprefix("refs/heads/")
     number = previous["number"] if previous is not None else None
     if number is None:
-        matches = gh(
+        matches = gh_json(
             repo, "pr", "list", "--repo", repository, "--state", "all",
             "--head", source, "--base", target, "--limit", "100", "--json",
             "number,state",
@@ -1751,7 +1743,7 @@ def ensure_pull_request(
             "--head", source, "--title", slug,
             "--body", f"Task: `{slug}`\n\nCandidate: `{candidate_entry_data['candidate_sha']}`",
         )
-        matches = gh(
+        matches = gh_json(
             repo, "pr", "list", "--repo", repository, "--state", "all",
             "--head", source, "--base", target, "--limit", "100", "--json",
             "number,state",
@@ -1760,7 +1752,7 @@ def ensure_pull_request(
             raise RemoteAccessError("created pull request could not be identified")
         number = matches[0]["number"]
     else:
-        state = gh(
+        state = gh_json(
             repo, "pr", "view", str(number), "--repo", repository, "--json", "state"
         )["state"]
         if state == "CLOSED":
@@ -1770,7 +1762,7 @@ def ensure_pull_request(
             "--base", target, "--title", slug,
             "--body", f"Task: `{slug}`\n\nCandidate: `{candidate_entry_data['candidate_sha']}`",
         )
-    metadata = gh(
+    metadata = gh_json(
         repo, "pr", "view", str(number), "--repo", repository, "--json",
         "number,url,baseRefName,headRefName,headRefOid",
     )
