@@ -18,6 +18,12 @@ Expose consequential unknowns instead of guessing:
 An unresolved question may remain only when it does not prevent an implementer
 from choosing correct behavior or proving completion.
 
+Treat backward compatibility, legacy runtime behavior, migration, and history
+retention as product decisions. Do not infer them because older state exists.
+Require an authoritative consumer contract or an explicit human decision that
+selects breaking or resetting, one-time migration, or ongoing compatibility.
+Otherwise record the choice as an unresolved question; do not select it.
+
 ## Set the scope
 
 Prefer the fewest independently useful specifications. Split outcomes that can
@@ -52,8 +58,7 @@ contracts instead of copying details that can change elsewhere.
 
 ### Invariants
 
-State truths that must remain true across the change, including compatibility,
-authorization, or data-history guarantees when applicable.
+State truths that must remain true across the change.
 
 ### Contract or interface changes
 

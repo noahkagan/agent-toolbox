@@ -23,15 +23,19 @@ mission; implementation freedom remains unless a constraint is necessary; and
 consequential unknowns are resolved or explicit. Dependencies and unavailable
 Node resources affect placement, not specification quality.
 
-Investigate the repository only as needed to answer two questions:
+Investigate the repository only as needed to answer three questions:
 
 1. **Repository assumptions:** Do load-bearing entities and seams named by the
    task exist and plausibly support the outcome?
 2. **Decision continuity:** Could adding, restoring, removing, or replacing a
    consequential mechanism reverse deliberate prior direction recorded in
    project docs, related task history, or relevant Git history?
+3. **Compatibility provenance:** Reject any backward-compatibility, legacy
+   runtime, migration, or history-retention requirement without an
+   authoritative consumer contract or explicit human decision selecting it,
+   even when the behavior is unambiguous.
 
-Keep both checks bounded. Do not design the implementation or audit unrelated
+Keep these checks bounded. Do not design the implementation or audit unrelated
 history. Prior implementation is evidence, not policy; block only on durable
 evidence of deliberate direction. A reversal is allowed when the specification
 explicitly supersedes that direction with a human decision.
