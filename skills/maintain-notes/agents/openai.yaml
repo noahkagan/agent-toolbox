@@ -1,4 +1,4 @@
 interface:
   display_name: "Maintain Notes"
-  short_description: "Keep linked notes current with project design"
+  short_description: "Keep notes current with design and research"
   default_prompt: "Use $maintain-notes to create or update linked notes for this project change."
