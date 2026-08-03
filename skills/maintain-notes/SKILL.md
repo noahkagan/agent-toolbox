@@ -1,6 +1,6 @@
 ---
 name: maintain-notes
-description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, or reviewing a note set whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time. Also use when modifying project-owned design or research so notes related to the change remain current.
+description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, auditing, or reviewing a note set whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time. Also use when modifying project-owned design or research so notes related to the change remain current.
 ---
 
 # Maintain Notes
@@ -44,8 +44,10 @@ Progressively advance the frontier as people define product needs, develop knowl
 
 ## Verify
 
-- Confirm every changed document has one concept and no more than 500 body words.
-- Confirm frontmatter contains only `keywords`.
-- Check every changed link and its target.
-- Search for repeated claims and replace copies with canonical references.
+Apply these checks to the requested note set during an audit and to changed documents after an edit.
+
+- Confirm each scoped document has one concept and no more than 500 body words.
+- Confirm each scoped document's frontmatter contains only `keywords`.
+- Check each scoped link and its target.
+- Search the scope for repeated claims and replace copies with canonical references.
 - Confirm the uncertainty frontier includes undefined product needs and reflects recorded knowledge and decisions without implicit closure.
