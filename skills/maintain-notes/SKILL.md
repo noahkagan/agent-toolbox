@@ -1,6 +1,6 @@
 ---
 name: maintain-notes
-description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, or reviewing a note set whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time.
+description: Write and maintain concise, linked Markdown notes without duplicated information. Use when creating, editing, splitting, organizing, or reviewing a note set whose product needs, knowledge, decisions, experiments, or uncertainty evolve over time. Also use when modifying project-owned architecture or design so notes related to the change remain current.
 ---
 
 # Maintain Notes
@@ -16,6 +16,15 @@ Treat a note set as an implicit graph connected by Markdown links. Add structure
 5. Use frontmatter only for a maintained `keywords` list. Add only keywords that improve search. Do not encode state or relationships in metadata.
 6. Express relationships with links in prose. Prefer the most specific existing note, code, test, artifact, or external source over a new explanation.
 7. State product needs, observations, uncertainty, and decisions directly. Do not present a guess, decision, or repeated assertion as knowledge.
+
+## Modify architecture or design
+
+When changing project-owned architecture or design:
+
+1. Search existing notes for the affected concepts and linked code before choosing the change.
+2. Update any note whose canonical content or links became inaccurate.
+3. Reference the changed code instead of restating its implementation.
+4. Preserve any undefined product need or unanswered question exposed by the change.
 
 ## Maintain the uncertainty frontier
 

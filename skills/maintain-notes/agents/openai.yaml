@@ -1,4 +1,4 @@
 interface:
   display_name: "Maintain Notes"
-  short_description: "Write concise linked notes without duplication"
-  default_prompt: "Use $maintain-notes to create or update linked Markdown notes."
+  short_description: "Keep linked notes current with project design"
+  default_prompt: "Use $maintain-notes to create or update linked notes for this project change."
