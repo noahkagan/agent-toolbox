@@ -36,7 +36,7 @@ CANDIDATE_FIELDS = {
     "slug", "author_owner", "spec_sha", "allowed_repositories", "repositories",
 }
 EVIDENCE_NAMES = (
-    "candidate.json", "merge.json", "validation.json", "review.json",
+    "candidate.json", "validation.json", "review.json",
 )
 MANIFEST_FIELDS = {"dependencies", "capabilities", "resources", "repositories"}
 CAPABILITY_FIELDS = {"os", "architecture"}
@@ -63,7 +63,6 @@ CHECKPOINT_PROTECTED_PATTERNS = (
     ("scratch/<slug>/candidate.json", "candidate binding", "nk task submit"),
     ("scratch/<slug>/validation.json", "validation evidence", "nk task record-validation"),
     ("scratch/<slug>/review.json", "external review binding", "nk task complete"),
-    ("scratch/<slug>/merge.json", "merge evidence", "nk task complete"),
     ("scratch/<slug>/progress.md", "Checkpoint input", "nk task checkpoint"),
     ("scratch/<slug>/blocker.md", "Blocked input", "nk task block"),
     ("scratch/<slug>/cancellation.md", "cancellation input", "nk task cancel"),
@@ -742,22 +741,13 @@ def ensure_claim_release(workspace: Path, slug: str) -> dict[str, Any]:
 def candidate_entry(workspace: Path, slug: str, value: str) -> dict[str, str]:
     relative, repo = normalized_repository(workspace, value)
     target = resolve_default_branch(repo)
-    target_sha = fetch_ref(repo, target.ref)
     candidate_ref = f"refs/heads/candidate/{slug}"
     candidate_sha = remote_sha(repo, candidate_ref)
     if candidate_sha is None:
         raise CoordinationError(f"missing remote candidate ref: {relative}")
-    git(repo, "fetch", "origin", f"+{candidate_ref}:{tracking_ref(candidate_ref)}")
-    base = git(repo, "merge-base", target_sha, candidate_sha, check=False)
-    if base.returncode or SHA_RE.fullmatch(base.stdout.strip()) is None:
-        raise CoordinationError(f"candidate has no merge base with target: {relative}")
-    base_sha = base.stdout.strip()
-    if git(repo, "merge-base", "--is-ancestor", base_sha, candidate_sha, check=False).returncode:
-        raise CoordinationError(f"candidate is not descended from its base: {relative}")
     return {
         "path": relative,
         "target_ref": target.ref,
-        "base_sha": base_sha,
         "candidate_sha": candidate_sha,
     }
 
@@ -773,12 +763,12 @@ def validate_candidate(data: Any, slug: str) -> dict[str, Any]:
     seen = set()
     for entry in repositories:
         if not isinstance(entry, dict) or set(entry) != {
-            "path", "target_ref", "base_sha", "candidate_sha"
+            "path", "target_ref", "candidate_sha"
         }:
             raise CoordinationError("candidate repository entry is invalid")
         if not all(isinstance(entry.get(key), str) and entry[key] for key in entry):
             raise CoordinationError("candidate repository values are invalid")
-        if entry["path"] in seen or SHA_RE.fullmatch(entry["base_sha"]) is None or SHA_RE.fullmatch(entry["candidate_sha"]) is None:
+        if entry["path"] in seen or SHA_RE.fullmatch(entry["candidate_sha"]) is None:
             raise CoordinationError("candidate repository identity is invalid")
         if not entry["target_ref"].startswith("refs/heads/"):
             raise CoordinationError("candidate target ref is invalid")
@@ -1357,7 +1347,7 @@ def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
         paths = evidence_paths(workspace, slug)
         changed = list(paths.values())
         write_json(paths["candidate.json"], manifest)
-        remove_evidence(paths, ("merge.json", "validation.json"))
+        remove_evidence(paths, ("validation.json",))
         relative = [relative_git_path(path, workspace) for path in changed]
         commit_and_push(workspace, control, expected_sha, f"Submit task {slug}", relative)
         print(f"SUBMITTED\t{slug}\tAuthoring")

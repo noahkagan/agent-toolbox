@@ -137,7 +137,7 @@ def validation(candidate: dict[str, object], revision: str, readme: Path) -> dic
 
 def world(directory: Path) -> tuple[Path, Path, dict[str, object]]:
     control_bare, workspace, _ = bare_repo(directory, "workspace")
-    child_bare, child, base = bare_repo(directory, "project")
+    child_bare, child, _base = bare_repo(directory, "project")
     child_target = workspace / "group/project"
     child_target.parent.mkdir(parents=True)
     run("git", "clone", str(child_bare), str(child_target), cwd=directory)
@@ -168,7 +168,6 @@ def world(directory: Path) -> tuple[Path, Path, dict[str, object]]:
             {
                 "path": "group/project",
                 "target_ref": "refs/heads/main",
-                "base_sha": base,
                 "candidate_sha": candidate_sha,
             }
         ],
@@ -210,7 +209,7 @@ def binding(candidate: dict[str, object]) -> dict[str, object]:
 def add_repository(
     directory: Path, workspace: Path, candidate: dict[str, object], name: str
 ) -> Path:
-    _bare, _checkout, base = bare_repo(directory, name)
+    _bare, _checkout, _base = bare_repo(directory, name)
     child = workspace / f"group/{name}"
     run("git", "clone", str(directory / f"{name}.git"), str(child), cwd=directory)
     git(child, "switch", "-c", f"candidate/{SLUG}")
@@ -222,7 +221,7 @@ def add_repository(
     candidate["repositories"].append(
         {
             "path": path, "target_ref": "refs/heads/main",
-            "base_sha": base, "candidate_sha": candidate_sha,
+            "candidate_sha": candidate_sha,
         }
     )
     task_path = workspace / f"scratch/{SLUG}"
