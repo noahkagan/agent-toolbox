@@ -51,5 +51,6 @@ Run each test script directly from the repository root:
 for test in tests/test_*.py; do python3 "$test"; done
 ```
 
-See [Workspace conventions](skills/workspace-conventions/SKILL.md) for the
-workspace and task model.
+See [nk](nk/README.md) for task state and
+[Workspace conventions](skills/workspace-conventions/SKILL.md) for workspace
+tool boundaries.
