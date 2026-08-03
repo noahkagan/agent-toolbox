@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from . import workspace as workspace_registry
 
@@ -610,6 +610,38 @@ def commit_and_push(
     if git(workspace, "merge-base", "--is-ancestor", generated, remote, check=False).returncode:
         raise PublicationError("generated coordination commit is not published")
     return generated
+
+
+def publish_control_transition(
+    workspace: Path,
+    control: ControlBranch,
+    expected_sha: str,
+    message: str,
+    mutate: Callable[[Path], list[str]],
+) -> None:
+    with tempfile.TemporaryDirectory(prefix="task-transition-") as directory:
+        temporary = Path(directory)
+        git(workspace, "worktree", "add", "--detach", str(temporary), expected_sha)
+        try:
+            paths = mutate(temporary)
+            git(temporary, "add", "--all", "--", *paths)
+            git(temporary, "commit", "-m", message)
+            generated = git(temporary, "rev-parse", "HEAD").stdout.strip()
+            pushed = push_control_ref(temporary, control, expected_sha)
+        finally:
+            git(workspace, "worktree", "remove", "--force", str(temporary))
+    remote = fetch_ref(workspace, control.ref)
+    published = not git(
+        workspace, "merge-base", "--is-ancestor", generated, remote,
+        check=False,
+    ).returncode
+    synchronize_checkout(workspace, control, remote)
+    if published:
+        return
+    detail = pushed.stderr.strip() or pushed.stdout.strip()
+    if pushed.returncode:
+        raise PublicationError(f"control transition push failed: {detail}")
+    raise PublicationError("published control transition is missing")
 
 
 def push_control_ref(
@@ -1643,16 +1675,18 @@ def github_snapshot(repo: Path, binding: dict[str, Any]) -> dict[str, Any]:
                     raise RemoteAccessError(
                         "GitHub review thread comments response is invalid"
                     )
-                comments = []
+                thread_comments = []
                 for comment_page in comment_pages:
                     try:
-                        comments.extend(comment_page["data"]["node"]["comments"]["nodes"])
+                        thread_comments.extend(
+                            comment_page["data"]["node"]["comments"]["nodes"]
+                        )
                     except (KeyError, TypeError) as exc:
                         raise RemoteAccessError(
                             "GitHub review thread comments response is invalid"
                         ) from exc
                 thread["comments"] = {
-                    "nodes": comments,
+                    "nodes": thread_comments,
                     "pageInfo": {"hasNextPage": False, "endCursor": None},
                 }
             threads.append(thread)
@@ -1782,43 +1816,29 @@ def publish_review(workspace: Path, slug: str) -> None:
             bindings.append(
                 ensure_pull_request(repo, slug, entry, previous_by_path.get(entry["path"]))
             )
-        with tempfile.TemporaryDirectory(prefix="task-review-") as directory:
-            temporary = Path(directory)
-            git(workspace, "worktree", "add", "--detach", str(temporary), expected_sha)
-            try:
-                temporary_review = task_dir(temporary, slug) / "review.json"
-                write_json(
-                    temporary_review,
-                    {
-                        "slug": slug,
-                        "candidate_digest": digest(candidate),
-                        "repositories": bindings,
-                    },
-                )
-                ensure_review_queue(temporary)
-                move_todo(temporary, slug, "Authoring", "Review")
-                temporary_claim = task_dir(temporary, slug) / "claim.json"
-                temporary_claim.unlink()
-                git(
-                    temporary, "add", "--all", "--", "TODO.md",
-                    relative_git_path(temporary_claim, temporary),
-                    relative_git_path(temporary_review, temporary),
-                )
-                git(temporary, "commit", "-m", f"Review task {slug}")
-                generated = git(temporary, "rev-parse", "HEAD").stdout.strip()
-                pushed = push_control_ref(temporary, control, expected_sha)
-            finally:
-                git(workspace, "worktree", "remove", "--force", str(temporary))
-        if pushed.returncode:
-            detail = pushed.stderr.strip() or pushed.stdout.strip()
-            raise PublicationError(f"review transition push failed: {detail}")
-        remote = fetch_ref(workspace, control.ref)
-        if git(
-            workspace, "merge-base", "--is-ancestor", generated, remote,
-            check=False,
-        ).returncode:
-            raise PublicationError("published review transition is missing")
-        synchronize_checkout(workspace, control, remote)
+        def transition(temporary: Path) -> list[str]:
+            temporary_review = task_dir(temporary, slug) / "review.json"
+            write_json(
+                temporary_review,
+                {
+                    "slug": slug,
+                    "candidate_digest": digest(candidate),
+                    "repositories": bindings,
+                },
+            )
+            ensure_review_queue(temporary)
+            move_todo(temporary, slug, "Authoring", "Review")
+            temporary_claim = task_dir(temporary, slug) / "claim.json"
+            temporary_claim.unlink()
+            return [
+                "TODO.md",
+                relative_git_path(temporary_claim, temporary),
+                relative_git_path(temporary_review, temporary),
+            ]
+
+        publish_control_transition(
+            workspace, control, expected_sha, f"Review task {slug}", transition
+        )
     print(f"REVIEW\t{slug}\tReview")
 
 
@@ -1843,24 +1863,25 @@ def repair_review(workspace: Path, slug: str) -> None:
             raise CoordinationError("workspace already owns an Authoring task")
         candidate = load_candidate(workspace, slug)
         load_review(workspace, slug)
-        ensure_review_queue(workspace)
-        move_todo(workspace, slug, "Review", "Authoring")
-        claim_path = task_dir(workspace, slug) / "claim.json"
-        write_json(
-            claim_path,
-            {
-                "owner": owner(workspace),
-                "claim_id": uuid.uuid4().hex,
-                "spec_sha": candidate.get("spec_sha", expected_sha),
-                "repositories": candidate.get(
-                    "allowed_repositories",
-                    [entry["path"] for entry in candidate["repositories"]],
-                ),
-            },
-        )
-        commit_and_push(
-            workspace, control, expected_sha, f"Repair task {slug}",
-            ["TODO.md", relative_git_path(claim_path, workspace)],
+        claim = {
+            "owner": owner(workspace),
+            "claim_id": uuid.uuid4().hex,
+            "spec_sha": candidate.get("spec_sha", expected_sha),
+            "repositories": candidate.get(
+                "allowed_repositories",
+                [entry["path"] for entry in candidate["repositories"]],
+            ),
+        }
+
+        def transition(temporary: Path) -> list[str]:
+            ensure_review_queue(temporary)
+            move_todo(temporary, slug, "Review", "Authoring")
+            claim_path = task_dir(temporary, slug) / "claim.json"
+            write_json(claim_path, claim)
+            return ["TODO.md", relative_git_path(claim_path, temporary)]
+
+        publish_control_transition(
+            workspace, control, expected_sha, f"Repair task {slug}", transition
         )
     print(f"REPAIR\t{slug}\tAuthoring")
 
@@ -1901,10 +1922,13 @@ def reconcile_review(workspace: Path, slug: str) -> None:
         if pending:
             print(json.dumps({"slug": slug, "status": "Review", "pending": pending}, indent=2))
             return
-        ensure_review_queue(workspace)
-        move_todo(workspace, slug, "Review", "Done")
-        commit_and_push(
-            workspace, control, expected_sha, f"Complete task {slug}", ["TODO.md"]
+        def transition(temporary: Path) -> list[str]:
+            ensure_review_queue(temporary)
+            move_todo(temporary, slug, "Review", "Done")
+            return ["TODO.md"]
+
+        publish_control_transition(
+            workspace, control, expected_sha, f"Complete task {slug}", transition
         )
     print(f"COMPLETED\t{slug}\tDone")
 

@@ -219,7 +219,16 @@ with tempfile.TemporaryDirectory() as temporary:
     workspace, child, candidate = world(directory)
     original_pull = task.ensure_pull_request
     original_snapshot = task.github_snapshot
-    task.ensure_pull_request = lambda _repo, _slug, _entry, _previous: binding(candidate)
+    original_push = task.push_control_ref
+    previous_bindings = []
+
+    def pull_request(
+        _repo: Path, _slug: str, _entry: dict[str, str], previous: object
+    ) -> dict[str, object]:
+        previous_bindings.append(previous)
+        return binding(candidate)
+
+    task.ensure_pull_request = pull_request
     try:
         os.environ["NK_WORKSPACE_OWNER"] = "review-test@localhost"
         target_before = task.remote_sha(child, "refs/heads/main")
@@ -247,11 +256,57 @@ with tempfile.TemporaryDirectory() as temporary:
         assert "current discussion" in output.getvalue()
         assert '"isResolved": false' in output.getvalue()
 
+        task.push_control_ref = lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="lease rejected"
+        )
+        try:
+            task.repair_review(workspace, SLUG)
+        except task.PublicationError:
+            pass
+        else:
+            raise AssertionError("repair push failure changed lifecycle")
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Review"
+        assert not (workspace / f"scratch/{SLUG}/claim.json").exists()
+        task.push_control_ref = original_push
         task.repair_review(workspace, SLUG)
         buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
         assert buckets[SLUG] == "Authoring"
         assert (workspace / f"scratch/{SLUG}/claim.json").exists()
+        write(child / "feature.txt", "repaired candidate\n")
+        repaired_sha = commit(child, "Repair candidate")
+        git(child, "push", "--force", "origin", f"candidate/{SLUG}")
+        git(workspace, "add", "group/project")
+        git(workspace, "commit", "-m", "Update repaired test checkout")
+        git(workspace, "push", "origin", "main")
+        task.submit(workspace, SLUG, ["group/project"])
+        validation_path = workspace / f"scratch/{SLUG}/validation.json"
+        assert not validation_path.exists()
+        try:
+            task.complete(workspace, SLUG)
+        except task.CoordinationError as exc:
+            assert "validation.json" in str(exc)
+        else:
+            raise AssertionError("changed candidate reused prior validation")
+        candidate = json.loads(
+            (workspace / f"scratch/{SLUG}/candidate.json").read_text()
+        )
+        assert candidate["repositories"][0]["candidate_sha"] == repaired_sha
+        revision = git(workspace, "rev-parse", "HEAD")
+        write(
+            validation_path,
+            json.dumps(
+                validation(
+                    candidate, revision,
+                    workspace / f"scratch/{SLUG}/README.md",
+                )
+            ),
+        )
+        git(workspace, "add", f"scratch/{SLUG}/validation.json")
+        git(workspace, "commit", "-m", "Validate repaired candidate")
+        git(workspace, "push", "origin", "main")
         task.complete(workspace, SLUG)
+        assert previous_bindings[-1]["number"] == 7
 
         candidate_sha = candidate["repositories"][0]["candidate_sha"]
         task.github_snapshot = lambda _repo, _binding: {
@@ -270,12 +325,25 @@ with tempfile.TemporaryDirectory() as temporary:
             "comments": [], "review_comments": [], "threads": [],
         }
         git(child, "push", "origin", f"{candidate_sha}:refs/heads/main")
+        task.push_control_ref = lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="lease rejected"
+        )
+        try:
+            task.reconcile_review(workspace, SLUG)
+        except task.PublicationError:
+            pass
+        else:
+            raise AssertionError("reconciliation push failure changed lifecycle")
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Review"
+        task.push_control_ref = original_push
         task.reconcile_review(workspace, SLUG)
         buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
         assert buckets[SLUG] == "Done"
     finally:
         task.ensure_pull_request = original_pull
         task.github_snapshot = original_snapshot
+        task.push_control_ref = original_push
         os.environ.pop("NK_WORKSPACE_OWNER", None)
 
 
@@ -377,12 +445,43 @@ with tempfile.TemporaryDirectory() as temporary:
         os.environ.pop("NK_WORKSPACE_OWNER", None)
 
 
+with tempfile.TemporaryDirectory() as temporary:
+    directory = Path(temporary).resolve()
+    workspace, _child, candidate = world(directory)
+    original_pull = task.ensure_pull_request
+    original_push = task.push_control_ref
+    task.ensure_pull_request = lambda _repo, _slug, _entry, _previous: binding(candidate)
+
+    def accepted_with_transport_error(
+        repo: Path, control: task.ControlBranch, expected: str, source: str = "HEAD"
+    ) -> subprocess.CompletedProcess[str]:
+        result = original_push(repo, control, expected, source)
+        assert result.returncode == 0
+        return subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="transport closed"
+        )
+
+    task.push_control_ref = accepted_with_transport_error
+    try:
+        os.environ["NK_WORKSPACE_OWNER"] = "review-test@localhost"
+        task.complete(workspace, SLUG)
+        buckets, _ = task.parse_todo((workspace / "TODO.md").read_text())
+        assert buckets[SLUG] == "Review"
+        assert not (workspace / f"scratch/{SLUG}/claim.json").exists()
+    finally:
+        task.ensure_pull_request = original_pull
+        task.push_control_ref = original_push
+        os.environ.pop("NK_WORKSPACE_OWNER", None)
+
+
 original_gh = task.gh
 
 
 def paginated_gh(_repo: Path, *args: str) -> object:
     if args[:2] == ("pr", "view"):
         return {}
+    if any("/issues/" in arg for arg in args):
+        return [[{"body": "issue discussion"}]]
     if "graphql" not in args:
         return [[]]
     query = next(arg for arg in args if arg.startswith("query="))
@@ -423,8 +522,62 @@ try:
     assert [
         comment["body"] for comment in snapshot["threads"][0]["comments"]["nodes"]
     ] == ["first", "second"]
+    assert snapshot["comments"] == [{"body": "issue discussion"}]
 finally:
     task.gh = original_gh
+
+
+original_gh = task.gh
+original_gh_text = task.gh_text
+original_repository = task.github_repository
+forge_commands = []
+created = False
+
+
+def forge_gh(_repo: Path, *args: str) -> object:
+    forge_commands.append(args)
+    if args[:2] == ("pr", "list"):
+        return [{"number": 7, "state": "OPEN"}] if created else []
+    if args[:2] == ("pr", "view") and args[-1] == "state":
+        return {"state": "OPEN"}
+    return {
+        "number": 7, "url": "https://github.com/example/project/pull/7",
+        "baseRefName": "main", "headRefName": f"candidate/{SLUG}",
+        "headRefOid": "a" * 40,
+    }
+
+
+def forge_text(_repo: Path, *args: str) -> str:
+    global created
+    forge_commands.append(args)
+    if args[:2] == ("pr", "create"):
+        created = True
+    return ""
+
+
+try:
+    task.gh = forge_gh
+    task.gh_text = forge_text
+    task.github_repository = lambda _repo: ("example", "project")
+    candidate_entry = {
+        "path": "group/project", "target_ref": "refs/heads/main",
+        "candidate_sha": "a" * 40,
+    }
+    created_binding = task.ensure_pull_request(
+        Path("."), SLUG, candidate_entry, None
+    )
+    assert created_binding["number"] == 7
+    task.ensure_pull_request(Path("."), SLUG, candidate_entry, created_binding)
+    assert sum(command[:2] == ("pr", "create") for command in forge_commands) == 1
+    assert any(command[:2] == ("pr", "edit") for command in forge_commands)
+    assert not any(
+        command[:2] in {("pr", "merge"), ("pr", "review")}
+        for command in forge_commands
+    )
+finally:
+    task.gh = original_gh
+    task.gh_text = original_gh_text
+    task.github_repository = original_repository
 
 
 candidate_sha = "a" * 40
