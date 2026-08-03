@@ -18,6 +18,12 @@ Expose consequential unknowns instead of guessing:
 An unresolved question may remain only when it does not prevent an implementer
 from choosing correct behavior or proving completion.
 
+Treat backward compatibility, legacy runtime behavior, migration, and history
+retention as product decisions. Do not infer them because older state exists.
+Require an authoritative consumer contract or an explicit human decision that
+selects breaking or resetting, one-time migration, or ongoing compatibility.
+Otherwise record the choice as an unresolved question; do not select it.
+
 ## Set the scope
 
 Prefer the fewest independently useful specifications. Split outcomes that can
@@ -52,8 +58,10 @@ contracts instead of copying details that can change elsewhere.
 
 ### Invariants
 
-State truths that must remain true across the change, including compatibility,
-authorization, or data-history guarantees when applicable.
+State truths that must remain true across the change. Include compatibility or
+data-history guarantees only when an authoritative consumer contract or an
+explicit human decision requires them. Include authorization guarantees when
+applicable.
 
 ### Contract or interface changes
 
@@ -101,8 +109,10 @@ Finish only when every answer is satisfactory.
 6. Is every statement necessary, consistent, possible, and verifiable?
 7. Does the specification reference authoritative facts instead of duplicating
    them?
-8. Does the derisk sequence address the largest assumptions cheaply?
-9. Should any independently useful outcome become its own specification?
+8. Does every compatibility, migration, or history-retention requirement cite
+   its authoritative contract or explicit human decision?
+9. Does the derisk sequence address the largest assumptions cheaply?
+10. Should any independently useful outcome become its own specification?
 
 When the specification spans several repositories, contracts, platforms, or
 observable outcomes, request one fresh-context review of its contract size.
