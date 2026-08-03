@@ -21,7 +21,10 @@ the best code is the code never written.
 - Treat recurring edge-case or test-correction churn as evidence to reconsider
   the design from first principles, rather than continuing to patch symptoms.
 - Reuse existing dependencies, libraries, algorithms, and shared logic when
-  they fit without adding dependencies or obscuring the design.
+  they fit without adding dependencies or obscuring the design. Before adding
+  sibling functions, identify their required data transformations and shared
+  physical work. If they differ only by a transformation, implement the shared
+  work once and compose the transformation around it.
 - Always prefer composition over inheritance.
 - Always prefer async over sync, unless there is a latency concern.
 - Choose data model representations where it is impossible to represent bad
