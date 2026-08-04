@@ -26,6 +26,7 @@
       "ls",
       "meta",
       "mkdir",
+      "mktemp",
       "nk",
       "node",
       "nvcc",
