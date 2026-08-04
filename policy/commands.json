@@ -32,6 +32,8 @@
       "nvcc",
       "nvidia-smi",
       "pgrep",
+      "pip",
+      "pip3",
       "printf",
       "pwd",
       "python",
