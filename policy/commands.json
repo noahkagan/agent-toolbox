@@ -24,6 +24,7 @@
       "nk",
       "node",
       "nvidia-smi",
+      "pgrep",
       "printf",
       "pwd",
       "python",
