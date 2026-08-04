@@ -38,9 +38,7 @@ CANDIDATE_FIELDS = {
 EVIDENCE_NAMES = (
     "candidate.json", "validation.json", "review.json",
 )
-MANIFEST_FIELDS = {"dependencies", "capabilities", "resources", "repositories"}
-CAPABILITY_FIELDS = {"os", "architecture"}
-RESOURCE_FIELDS = {"gpu"}
+MANIFEST_FIELDS = {"dependencies", "repositories"}
 RUNTIME_PREFIX = ".workspace"
 SLUG_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})-"
@@ -835,8 +833,6 @@ def validate_manifest(data: Any, slug: str, *, require_ready: bool = False) -> d
     if not isinstance(data, dict) or set(data) != MANIFEST_FIELDS:
         raise CoordinationError(f"task manifest fields are invalid: {slug}")
     dependencies = data["dependencies"]
-    capabilities = data["capabilities"]
-    resources = data["resources"]
     repositories = data["repositories"]
     if dependencies is not None and (
         not isinstance(dependencies, list)
@@ -844,18 +840,6 @@ def validate_manifest(data: Any, slug: str, *, require_ready: bool = False) -> d
         or len(dependencies) != len(set(dependencies))
     ):
         raise CoordinationError(f"task dependencies are invalid: {slug}")
-    if capabilities is not None and (
-        not isinstance(capabilities, dict)
-        or not set(capabilities).issubset(CAPABILITY_FIELDS)
-        or any(not isinstance(value, str) or not value for value in capabilities.values())
-    ):
-        raise CoordinationError(f"task capabilities are invalid: {slug}")
-    if resources is not None and (
-        not isinstance(resources, dict)
-        or not set(resources).issubset(RESOURCE_FIELDS)
-        or any(not isinstance(value, int) or value < 0 for value in resources.values())
-    ):
-        raise CoordinationError(f"task resources are invalid: {slug}")
     if repositories is not None and not valid_repositories(repositories):
         raise CoordinationError(f"task repositories are invalid: {slug}")
     if require_ready and any(value is None for value in data.values()):
@@ -1900,8 +1884,6 @@ def create(workspace: Path, slug: str) -> None:
         (directory / "JOURNAL.md").write_text("# Task Journal\n", encoding="utf-8")
         write_json(directory / "task.json", {
             "dependencies": None,
-            "capabilities": None,
-            "resources": None,
             "repositories": None,
         })
         insert_task(workspace, slug, "Backlog")
@@ -1937,8 +1919,6 @@ def create_follow_up(workspace: Path, source: str, slug: str) -> None:
         (directory / "JOURNAL.md").write_text("# Task Journal\n", encoding="utf-8")
         write_json(directory / "task.json", {
             "dependencies": None,
-            "capabilities": None,
-            "resources": None,
             "repositories": None,
         })
         (workspace / note_relative).unlink()

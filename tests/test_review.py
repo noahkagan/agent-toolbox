@@ -105,7 +105,14 @@ rejects(
 )
 rejects(
     lambda: task.validate_manifest(
-        {"dependencies": [], "capabilities": {}, "resources": {}}, SLUG
+        {"dependencies": [], "capabilities": {}, "repositories": ["group/project"]},
+        SLUG,
+    )
+)
+rejects(
+    lambda: task.validate_manifest(
+        {"dependencies": [], "resources": {}, "repositories": ["group/project"]},
+        SLUG,
     )
 )
 
@@ -154,8 +161,7 @@ def world(directory: Path) -> tuple[Path, Path, dict[str, object]]:
         workspace / f"scratch/{SLUG}/task.json",
         json.dumps(
             {
-                "dependencies": [], "capabilities": {}, "resources": {},
-                "repositories": ["group/project"],
+                "dependencies": [], "repositories": ["group/project"],
             }
         ),
     )

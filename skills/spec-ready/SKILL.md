@@ -21,7 +21,7 @@ clear; requirements are possible, consistent, and verifiable; reasonable scope
 inferences are either required or excluded; acceptance evidence proves the
 mission; implementation freedom remains unless a constraint is necessary; and
 consequential unknowns are resolved or explicit. Dependencies and unavailable
-Node resources affect placement, not specification quality.
+execution resources affect placement, not specification quality.
 
 Investigate the repository only as needed to answer three questions:
 
