@@ -18,3 +18,6 @@ writing files.
 
 These are base-command approvals, so every invocation beginning with a listed
 command is approved. Review the list before installing it on another machine.
+
+Use `bash -lc` when a command needs shell assignments, substitutions, pipes, or
+other compound syntax. `bash` is approved for that purpose.
