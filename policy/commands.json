@@ -2,6 +2,7 @@
   "commands": {
     "allow": [
       "./install.sh",
+      "./project.sh",
       "[",
       "apply_patch",
       "cd",
