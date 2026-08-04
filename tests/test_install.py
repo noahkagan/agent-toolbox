@@ -19,7 +19,8 @@ with tempfile.TemporaryDirectory() as directory:
     codex_config = home / ".codex/config.toml"
     codex_config.parent.mkdir(parents=True)
     codex_config.write_text(
-        '[projects."/example"]\ntrust_level = "trusted"\n',
+        '[projects."/example"]\ntrust_level = "trusted"\n\n'
+        '[sandbox_workspace_write]\nwritable_roots = ["/existing"]\n',
         encoding="utf-8",
     )
     subprocess.run([root / "install.sh"], env=environment, check=True)
@@ -40,6 +41,7 @@ with tempfile.TemporaryDirectory() as directory:
     installed_codex = tomllib.loads(codex_config.read_text(encoding="utf-8"))
     assert installed_codex["sandbox_mode"] == "workspace-write"
     assert installed_codex["sandbox_workspace_write"]["network_access"] is True
+    assert installed_codex["sandbox_workspace_write"]["writable_roots"] == ["/existing", "/tmp"]
     assert installed_codex["projects"]["/example"]["trust_level"] == "trusted"
     subprocess.run([home / ".local/bin/nk", "--help"], env=environment, check=True)
 

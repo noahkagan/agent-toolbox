@@ -54,7 +54,7 @@ def write(path: Path, content: str) -> None:
     os.replace(temporary, path)
 
 
-def install(home: Path, values: list[str], runtime: dict[str, bool]) -> None:
+def install(home: Path, values: list[str], runtime: dict[str, object]) -> None:
     settings_path = home / ".claude/settings.json"
     settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
     if not isinstance(settings, dict) or not isinstance(settings.get("permissions", {}), dict):
