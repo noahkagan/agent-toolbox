@@ -5,6 +5,7 @@
       "./project.sh",
       "[",
       "apply_patch",
+      "apt-cache",
       "blender",
       "cd",
       "chmod",
