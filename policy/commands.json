@@ -39,6 +39,7 @@
       "subl",
       "tail",
       "test",
+      "timeout",
       "true",
       "uniq"
     ]
