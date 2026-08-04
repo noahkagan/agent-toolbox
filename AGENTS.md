@@ -38,6 +38,8 @@ the best code is the code never written.
 - Define a verifiable outcome before implementation. For multi-step work, give
   a brief plan with a check for each step, then verify the result before
   reporting completion.
+- Always place tests in dedicated test files. Do not embed tests in interface
+  files, implementation files, or production modules.
 
 ## Things to avoid
 
