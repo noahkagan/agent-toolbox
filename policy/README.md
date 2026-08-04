@@ -3,8 +3,8 @@
 `commands.json` is the authoritative list of approved base commands. The
 top-level installer installs equivalent rules for Codex, Claude Code, and
 Gemini CLI. `runtime.json` defines cross-harness runtime capabilities. The
-installer maps network access to Codex explicitly; Claude Code and Gemini CLI
-already permit network access by default.
+installer maps network access and writable roots to Codex explicitly. Claude
+Code and Gemini CLI already permit network and temporary-directory access.
 
 To install only the policies, run:
 
