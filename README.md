@@ -11,7 +11,8 @@ My opinionated toolbox for recurring needs in my agent workflows:
 
 ## Install
 
-Requires a POSIX shell and Python 3.11 or later. Clone the repository, review
+Requires a POSIX shell and Python 3.11 or later. The installer checks `PYTHON`,
+then `python3` and versioned interpreters. Clone the repository, review
 `AGENTS.md`, then run:
 
 ```sh
