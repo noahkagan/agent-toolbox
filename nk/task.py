@@ -736,16 +736,26 @@ def ensure_claim_release(workspace: Path, slug: str) -> dict[str, Any]:
     return claim
 
 
-def candidate_entry(workspace: Path, slug: str, value: str) -> dict[str, str]:
+def candidate_entry(
+    workspace: Path, slug: str, value: str, requested_target: str | None = None,
+) -> dict[str, str]:
     relative, repo = normalized_repository(workspace, value)
-    target = resolve_default_branch(repo)
+    if requested_target is None:
+        target_ref = resolve_default_branch(repo).ref
+    else:
+        target_ref = f"refs/heads/{requested_target}"
+        if remote_sha(repo, target_ref) is None:
+            raise CoordinationError(
+                f"requested candidate target is not a remote branch: "
+                f"{relative}: {requested_target}"
+            )
     candidate_ref = f"refs/heads/candidate/{slug}"
     candidate_sha = remote_sha(repo, candidate_ref)
     if candidate_sha is None:
         raise CoordinationError(f"missing remote candidate ref: {relative}")
     return {
         "path": relative,
-        "target_ref": target.ref,
+        "target_ref": target_ref,
         "candidate_sha": candidate_sha,
     }
 
@@ -1307,9 +1317,29 @@ def claim(
             return outcome
 
 
-def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
+def requested_candidate_targets(values: list[str]) -> dict[str, str]:
+    targets = {}
+    for value in values:
+        path, separator, branch = value.partition("=")
+        if not separator or not path or not branch:
+            raise CoordinationError("target requires REPOSITORY=BRANCH")
+        if path in targets:
+            raise CoordinationError(f"target is repeated for repository: {path}")
+        targets[path] = branch
+    return targets
+
+
+def submit(
+    workspace: Path, slug: str, repositories: list[str], targets: list[str] | None = None,
+) -> None:
     if not repositories or len(repositories) != len(set(repositories)):
         raise CoordinationError("submit requires unique ordered repositories")
+    requested_targets = requested_candidate_targets(targets or [])
+    unsubmitted = sorted(set(requested_targets) - set(repositories))
+    if unsubmitted:
+        raise CoordinationError(
+            f"candidate targets include unsubmitted repositories: {unsubmitted}"
+        )
     with mutation_guard(workspace) as (control, expected_sha):
         buckets, _, current = task_claim(workspace, slug)
         if buckets.get(slug) != "Authoring":
@@ -1320,7 +1350,10 @@ def submit(workspace: Path, slug: str, repositories: list[str]) -> None:
             raise CoordinationError(
                 f"candidate adds repositories outside the claim: {unexpected}"
             )
-        entries = [candidate_entry(workspace, slug, value) for value in repositories]
+        entries = [
+            candidate_entry(workspace, slug, value, requested_targets.get(value))
+            for value in repositories
+        ]
         manifest = {
             "slug": slug,
             "author_owner": current["owner"],
@@ -2650,6 +2683,10 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
     command.add_argument("--repository", action="append", default=[])
+    command.add_argument(
+        "--target", action="append", default=[], metavar="REPOSITORY=BRANCH",
+        help="candidate pull-request target for one repository; defaults to its remote default branch",
+    )
     command = subparsers.add_parser("complete")
     command.add_argument("--workspace")
     command.add_argument("--slug", required=True)
@@ -2725,7 +2762,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "status":
             status(workspace, args.slug)
         elif args.command == "submit":
-            submit(workspace, args.slug, args.repository)
+            submit(workspace, args.slug, args.repository, args.target)
         elif args.command == "record-validation":
             record_validation(
                 workspace, args.slug, args.verdict, args.task_plan_records,
