@@ -21,8 +21,13 @@ and ask.
 3. Keep one concept per document. Name new files for that concept using lowercase kebab-case. Do not encode type, status, date, or sequence in filenames.
 4. Keep each document at or below 500 words, excluding frontmatter. Split by concept before exceeding the limit.
 5. Use frontmatter only for a maintained `keywords` list. Add only keywords that improve search. Do not encode state or relationships in metadata.
-6. Express relationships with links in prose. Prefer the most specific existing note, code, test, artifact, or external source over a new explanation.
+6. Write links in fluent prose that explains why the linked concept matters here. Prefer the most specific existing source over a new explanation.
 7. State product needs, observations, uncertainty, and decisions directly. Do not present a guess, decision, or repeated assertion as knowledge.
+8. Use one noun and verb for each concept. Normalize competing terms across the scope. Separate terms only when they name a real distinction.
+
+## Keep a linear narrative
+
+Write each note as a linear argument from the current decision, observation, or product need through the evidence, options, or constraints needed to understand it, then to the uncertainty that remains.
 
 ## Maintain the uncertainty frontier
 
@@ -47,5 +52,6 @@ Apply these checks to the requested notes during an audit and to changed documen
 - Confirm each scoped document has one concept and no more than 500 body words.
 - Confirm each scoped document's frontmatter contains only `keywords`.
 - Check each scoped link and its target.
-- Search the scope for repeated claims and replace copies with canonical references.
+- Search for repeated claims and competing terms. Replace copies with contextual canonical links and normalize every concept to its one noun and verb.
+- Read every scoped note in order after structural edits. Check linear flow and contextual links.
 - Confirm undefined product needs and unanswered questions are clearly marked, linked, and not implicitly closed.
