@@ -36,3 +36,16 @@ files directly.
 Run `nk task --help` for commands and `nk task <command> --help` for required
 arguments. Run `nk task check --workspace <root> <slug>` to verify a task is
 ready for authoring.
+
+## Candidate targets
+
+`nk task submit` targets each candidate pull request at its repository's remote
+default branch unless told otherwise. Pass `--target REPOSITORY=BRANCH` once
+per repository that needs another target. The branch must already exist on that
+repository's `origin`; `nk` records it as `refs/heads/BRANCH` in
+`candidate.json` and uses that recorded reference during review publication.
+
+```sh
+nk task submit --slug 2026-08-04-example --repository group/project \
+  --target group/project=integration
+```
