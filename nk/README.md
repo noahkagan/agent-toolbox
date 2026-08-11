@@ -34,11 +34,11 @@ uppercase project key and number (`PROJECT-N`).
 
 ## Task index
 
-Sections appear in this order: In Progress, Ready, Needs More Info, Done, then
-Cancelled.
+Sections appear in this order: In Progress, Ready, Needs More Info, then
+Archived.
 
-Use `move` between the first three sections. Use `archive` for Done or Cancelled.
-Use `reopen` to return an archived task to one of the first three sections. Use
+Use `move` between the first three sections. Use `archive` to move a task to
+Archived. Use `reopen` to return it to one of the first three sections. Use
 `reorder` to change priority within one section.
 
 Run `nk task check <slug>` to validate the indexed task files. This command

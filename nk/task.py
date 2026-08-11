@@ -13,8 +13,8 @@ from . import workspace as workspace_registry
 
 
 MOVE_TARGETS = ("In Progress", "Ready", "Needs More Info")
-ARCHIVE_STATES = ("Done", "Cancelled")
-QUEUE_ORDER = (*MOVE_TARGETS, *ARCHIVE_STATES)
+ARCHIVED = "Archived"
+QUEUE_ORDER = (*MOVE_TARGETS, ARCHIVED)
 TASK_RE = re.compile(r"^- \[`([^`]+)`\]\((scratch/[^)]+/README\.md)\)$")
 SLUG_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})-"
@@ -169,7 +169,7 @@ def check(workspace: Path, slug: str) -> None:
 
 def move(workspace: Path, slug: str, target: str) -> None:
     source = validate_task(workspace, slug)
-    if source in ARCHIVE_STATES:
+    if source == ARCHIVED:
         raise TaskError(f"archived task must be reopened: {slug}")
     if target not in MOVE_TARGETS:
         raise TaskError(f"invalid move target: {target}")
@@ -183,23 +183,20 @@ def move(workspace: Path, slug: str, target: str) -> None:
     print(f"MOVED\t{slug}\t{target}")
 
 
-def archive(workspace: Path, slug: str, target: str) -> None:
+def archive(workspace: Path, slug: str) -> None:
     source = validate_task(workspace, slug)
-    if source in ARCHIVE_STATES:
+    if source == ARCHIVED:
         raise TaskError(f"task is already archived: {slug}")
-    if target not in ("done", "cancelled"):
-        raise TaskError(f"invalid archive target: {target}")
-    target = {"done": "Done", "cancelled": "Cancelled"}[target]
     _, grouped = tracker(workspace)
     grouped[source].remove(slug)
-    grouped[target].append(slug)
+    grouped[ARCHIVED].append(slug)
     write_tracker(workspace, grouped)
-    print(f"ARCHIVED\t{slug}\t{target}")
+    print(f"ARCHIVED\t{slug}")
 
 
 def reopen(workspace: Path, slug: str, target: str) -> None:
     source = validate_task(workspace, slug)
-    if source not in ARCHIVE_STATES:
+    if source != ARCHIVED:
         raise TaskError(f"task is not archived: {slug}")
     if target not in MOVE_TARGETS:
         raise TaskError(f"invalid reopen target: {target}")
@@ -248,7 +245,6 @@ def parser() -> argparse.ArgumentParser:
     command = subparsers.add_parser("archive")
     command.add_argument("slug")
     command.add_argument("--workspace")
-    command.add_argument("--as", dest="target", choices=("done", "cancelled"), required=True)
 
     command = subparsers.add_parser("reopen")
     command.add_argument("slug")
@@ -281,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "move":
             move(workspace, args.slug, args.to)
         elif args.command == "archive":
-            archive(workspace, args.slug, args.target)
+            archive(workspace, args.slug)
         elif args.command == "reopen":
             reopen(workspace, args.slug, args.to)
         else:

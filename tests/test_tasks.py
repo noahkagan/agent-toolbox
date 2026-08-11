@@ -60,8 +60,7 @@ with tempfile.TemporaryDirectory() as directory:
         "In Progress",
         "Ready",
         "Needs More Info",
-        "Done",
-        "Cancelled",
+        "Archived",
     ]
     assert all(state(todo, slug) == "Needs More Info" for slug in slugs)
 
@@ -81,14 +80,14 @@ with tempfile.TemporaryDirectory() as directory:
     assert rejected.returncode == 1
     assert "within the same section" in rejected.stderr
 
-    run("task", "archive", first, "--as", "done", cwd=child)
-    assert state((workspace / "TODO.md").read_text(), first) == "Done"
+    run("task", "archive", first, cwd=child)
+    assert state((workspace / "TODO.md").read_text(), first) == "Archived"
     rejected = run("task", "move", first, "--to", "Ready", cwd=child, check=False)
     assert rejected.returncode == 1
     assert "must be reopened" in rejected.stderr
     run("task", "reopen", first, "--to", "Ready", cwd=child)
-    run("task", "archive", first, "--as", "cancelled", cwd=child)
-    assert state((workspace / "TODO.md").read_text(), first) == "Cancelled"
+    run("task", "archive", first, cwd=child)
+    assert state((workspace / "TODO.md").read_text(), first) == "Archived"
 
     status = run("task", "status", second, cwd=child)
     assert f"STATUS\t{second}\tReady" in status.stdout

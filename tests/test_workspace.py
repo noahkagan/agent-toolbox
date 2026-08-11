@@ -43,9 +43,7 @@ with tempfile.TemporaryDirectory() as directory:
 
 ## Needs More Info
 
-## Done
-
-## Cancelled
+## Archived
 """
     assert (workspace / ".nk/workspace").read_text() == "1\n"
     assert (workspace / "TODO.md").read_text() == expected
@@ -74,11 +72,7 @@ with tempfile.TemporaryDirectory() as directory:
 
 ## Ready
 
-## Done
-
-## Backlog
-
-## Cancelled
+## Old
 """
     (legacy / "TODO.md").write_text(legacy_todo)
     rejected = run("workspace", "init", legacy, cwd=temporary, check=False)

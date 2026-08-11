@@ -18,9 +18,7 @@ TODO_CONTENT = """# TODO
 
 ## Needs More Info
 
-## Done
-
-## Cancelled
+## Archived
 """
 
 

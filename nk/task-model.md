@@ -12,13 +12,14 @@ keywords:
 own implementation branches, publish candidates, or mirror external review.
 
 `TODO.md` is the workspace entry point. Its sections appear in attention order:
-In Progress, Ready, Needs More Info, Done, then Cancelled. In Progress means
+In Progress, Ready, Needs More Info, then Archived. In Progress means
 implementation started. Ready means the task has a specification that a fresh
 session can execute and validate. Needs More Info means the task has never reached
 that specification granularity.
 
-Done and Cancelled archive tasks. A task may move directly among the first three
-sections because the index reports current orientation, not an enforced lifecycle.
+Archived collects tasks that no longer need attention. A task may move directly
+among the first three sections because the index reports current orientation, not
+an enforced lifecycle.
 
 Each stable task slug may include a GitHub, Linear, or project tracker identifier.
 Its `scratch/<slug>/README.md` holds the current task definition. Its
