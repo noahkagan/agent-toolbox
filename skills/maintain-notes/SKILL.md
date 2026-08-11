@@ -29,6 +29,11 @@ and ask.
 
 Write each note as a linear argument from the current decision, observation, or product need through the evidence, options, or constraints needed to understand it, then to the uncertainty that remains.
 
+Describe the current state without narrating how it changed. Put rejected
+alternatives after the current decision and state why they remain unselected.
+Avoid chronology unless it affects current behavior. Give each version's scope
+one canonical home.
+
 ## Maintain the uncertainty frontier
 
 Explicitly define the current uncertainty frontier: the boundary between settled product needs, knowledge, or decisions and undefined product needs or unanswered questions.
@@ -43,6 +48,7 @@ Progressively advance the frontier as people define product needs, develop knowl
 - Update links when a document moves, splits, or changes meaning.
 - Preserve undefined product needs until an explicit product decision defines them. Preserve other uncertainty until a finding or explicit decision resolves it.
 - Remove repeated text after replacing it with a reference.
+- Remove historical narration that does not explain current behavior.
 - Avoid indexes, registries, and directory hierarchies until links alone fail in a concrete case.
 
 ## Verify
@@ -54,4 +60,5 @@ Apply these checks to the requested notes during an audit and to changed documen
 - Check each scoped link and its target.
 - Search for repeated claims and competing terms. Replace copies with contextual canonical links and normalize every concept to its one noun and verb.
 - Read every scoped note in order after structural edits. Check linear flow and contextual links.
+- Confirm each note reads as current state and keeps rejected alternatives subordinate to it.
 - Confirm undefined product needs and unanswered questions are clearly marked, linked, and not implicitly closed.
