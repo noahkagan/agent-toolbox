@@ -29,8 +29,8 @@ and ask.
 
 Write each note as a linear argument from the current decision, observation, or
 product need through its evidence, constraints, and unselected alternatives to
-the remaining uncertainty. Describe current state; include chronology only when
-it affects current behavior. Give each version's scope one canonical home.
+the remaining uncertainty. Describe the current state. Include chronology only
+when it affects current behavior.
 
 ## Maintain the uncertainty frontier
 
