@@ -1,3 +1,3 @@
-"""Durable personal task tracking."""
+"""Durable task tracking."""
 
 __version__ = "0.1.0"
