@@ -27,7 +27,10 @@ and ask.
 
 ## Keep a linear narrative
 
-Write each note as a linear argument from the current decision, observation, or product need through the evidence, options, or constraints needed to understand it, then to the uncertainty that remains.
+Write each note as a linear argument from the current decision, observation, or
+product need through its evidence, constraints, and unselected alternatives to
+the remaining uncertainty. Describe the current state. Include chronology only
+when it affects current behavior.
 
 ## Maintain the uncertainty frontier
 

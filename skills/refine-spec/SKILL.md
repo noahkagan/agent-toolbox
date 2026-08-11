@@ -27,7 +27,14 @@ boundaries, invariants, interface changes, and evidence that proves completion.
 Leave design choices to the implementer unless a contract or explicit
 constraint fixes them.
 
-Mark consequential unknowns instead of guessing:
+Classify and resolve consequential unknowns:
+
+- Ask for a **product decision** when alternatives change user-visible behavior.
+- Research a **technical fact**.
+- Resolve an **empirical question** through an experiment.
+- Choose a reasonable initial value for a **tunable default**.
+
+Mark any that remain:
 
 ```text
 ??? <question>. Blocks: <decision or outcome>
