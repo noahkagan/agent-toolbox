@@ -27,23 +27,22 @@ boundaries, invariants, interface changes, and evidence that proves completion.
 Leave design choices to the implementer unless a contract or explicit
 constraint fixes them.
 
-Classify each unknown before deciding whether it blocks the specification:
+Classify and resolve consequential unknowns:
 
 - Ask for a **product decision** when alternatives change user-visible behavior.
 - Research a **technical fact**.
 - Resolve an **empirical question** through an experiment.
 - Choose a reasonable initial value for a **tunable default**.
 
-Mark unresolved product decisions and other consequential unknowns:
+Mark any that remain:
 
 ```text
 ??? <question>. Blocks: <decision or outcome>
 ```
 
-Only a missing product decision normally blocks readiness. Another unknown may
-remain only when it cannot change correct behavior or proof. Treat compatibility,
-migration, and history retention as product decisions. Require an authoritative
-consumer contract or an explicit human decision.
+An unknown may remain only when it cannot change correct behavior or proof.
+Treat compatibility, migration, and history retention as product decisions.
+Require an authoritative consumer contract or an explicit human decision.
 
 Prefer the fewest independently useful specifications. Split outcomes that can
 land, provide value, and be verified alone. Keep inseparable outcomes together
