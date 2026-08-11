@@ -52,5 +52,4 @@ for test in tests/test_*.py; do python3 "$test"; done
 ```
 
 See [nk](nk/README.md) for durable tasks and
-[Workspace conventions](skills/workspace-conventions/SKILL.md) for workspace
-tool boundaries.
+[Maintain tasks](skills/maintain-tasks/SKILL.md) for task context.

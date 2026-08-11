@@ -42,7 +42,7 @@ Archived. Use `reopen` to return it to one of the first three sections. Use
 `reorder` to change priority within one section.
 
 Run `nk task check <slug>` to validate the indexed task files. This command
-does not assess specification quality. Use the `spec-ready` skill for that.
+does not assess specification quality. Use the `refine-spec` skill for that.
 
 Run `nk task --help` for the complete command list. Run
 `nk task <command> --help` for command arguments.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Tasks"
+  short_description: "Preserve and refine durable task context"
+  default_prompt: "Use $maintain-tasks to reorient on this workspace and update its durable task context."

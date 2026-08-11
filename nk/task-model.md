@@ -29,7 +29,7 @@ The owning project keeps that knowledge according to
 [note maintenance](../skills/maintain-notes/SKILL.md).
 
 Tasks begin in Needs More Info. Their README may be staged, revised, and split
-until [specification review](../skills/spec-ready/SKILL.md) finds them Ready.
+until [specification refinement](../skills/refine-spec/SKILL.md) finds them Ready.
 Decomposition creates smaller tasks and records their relationship in ordinary
 Markdown links. No dependency graph or parent-child state propagation is required.
 

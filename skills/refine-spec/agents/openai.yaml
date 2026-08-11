@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refine Specification"
+  short_description: "Draft and verify executable task specifications"
+  default_prompt: "Use $refine-spec to refine this task until a fresh session can implement and validate it safely."
