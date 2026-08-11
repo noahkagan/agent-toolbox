@@ -13,7 +13,7 @@ available tools.
 
 ## Task workspace
 
-Before reading or changing task state, run `nk workspace root` from the current
+Before reading or changing task state, run `nk root` from the current
 path. Use only the returned directory for `TODO.md`, `scratch/`, and `nk task`
 commands. Do not infer the workspace from a Git root or repository layout.
 

@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory() as directory:
     workspace = Path(directory) / "workspace"
     workspace.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
-    run("workspace", "init", cwd=workspace)
+    run("init", cwd=workspace)
 
     child = workspace / "project/src"
     child.mkdir(parents=True)

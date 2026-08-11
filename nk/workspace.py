@@ -153,7 +153,7 @@ def require_root(path: Path) -> Path:
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(prog="nk workspace")
+    result = argparse.ArgumentParser(prog="nk")
     subparsers = result.add_subparsers(dest="command", required=True)
     for name in ("init", "root"):
         command = subparsers.add_parser(name)

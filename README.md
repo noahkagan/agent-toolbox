@@ -36,8 +36,8 @@ Initialize a Git control repository as an `nk` workspace:
 
 ```sh
 cd /path/to/workspace
-nk workspace init
-nk workspace root
+nk init
+nk root
 ```
 
 This creates the workspace marker, `TODO.md` task index, and `scratch/` task

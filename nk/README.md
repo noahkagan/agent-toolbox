@@ -9,9 +9,9 @@ Use `meta` separately when a workspace contains multiple repositories.
 
 ## Workspace data
 
-Run `nk workspace init` at a Git control-repository root. It creates the
+Run `nk init` at a Git control-repository root. It creates the
 `.nk/workspace` marker, `TODO.md`, and `scratch/`. Resolve the owning workspace
-from any descendant with `nk workspace root`.
+from any descendant with `nk root`.
 
 `TODO.md` is the task index. Each entry links to one
 `scratch/<slug>/README.md`. That file holds the current task definition.
@@ -46,6 +46,3 @@ does not assess specification quality. Use the `spec-ready` skill for that.
 
 Run `nk task --help` for the complete command list. Run
 `nk task <command> --help` for command arguments.
-
-This release is a destructive format cutover. Existing workspaces must rewrite
-their tracker and task files before the new commands can resolve them.
