@@ -5,7 +5,7 @@ description: Locate an nk workspace and distinguish durable task context from me
 
 # Workspace conventions
 
-Use `nk` for durable personal task context. Use `meta` for the workspace
+Use `nk` for durable task context. Use `meta` for the workspace
 repository set. Git and forge tools own implementation and review state.
 
 See the [agent-toolbox README](../../README.md) for installation and the

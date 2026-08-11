@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage durable personal tasks in an nk workspace."""
+"""Manage durable tasks in an nk workspace."""
 
 from __future__ import annotations
 

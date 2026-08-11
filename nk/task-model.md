@@ -8,7 +8,7 @@ keywords:
 
 # Durable task model
 
-`nk` preserves personal work across sessions. It does not coordinate agents,
+`nk` preserves work across sessions. It does not coordinate agents,
 own implementation branches, publish candidates, or mirror external review.
 
 `TODO.md` is the workspace entry point. Its active sections appear in attention

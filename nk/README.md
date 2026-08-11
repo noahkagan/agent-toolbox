@@ -1,6 +1,6 @@
 # nk
 
-`nk` preserves personal task context across sessions. It manages a Markdown
+`nk` preserves task context across sessions. It manages a Markdown
 index and task documents inside an initialized workspace.
 
 The [durable task model](task-model.md) defines the files and state meanings.
