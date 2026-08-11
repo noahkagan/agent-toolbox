@@ -4,7 +4,7 @@ My opinionated toolbox for recurring needs in my agent workflows:
 
 - Keep agent behavior consistent across tools and repositories.
 - Apply repeatable methods to design, specifications, notes, and implementation.
-- Make distributed task state durable, claimable, and verifiable.
+- Preserve task context across sessions.
 - Reduce review burden with clear definitions, sufficient specifications, and
   bounded structure.
 - Keep durable knowledge maps current through automatic agent maintenance.
@@ -36,13 +36,12 @@ Initialize a Git control repository as an `nk` workspace:
 
 ```sh
 cd /path/to/workspace
-nk workspace init
-nk workspace root
+nk init
+nk root
 ```
 
 This creates the workspace marker, `TODO.md` task index, and `scratch/` task
-artifacts directory. Run `nk task --help` for task lifecycle commands. Some task
-coordination commands also require GitHub CLI access and a configured `origin`.
+directory. Run `nk task --help` for task commands.
 
 ## Test
 
@@ -52,6 +51,5 @@ Run each test script directly from the repository root:
 for test in tests/test_*.py; do python3 "$test"; done
 ```
 
-See [nk](nk/README.md) for task state and
-[Workspace conventions](skills/workspace-conventions/SKILL.md) for workspace
-tool boundaries.
+See [nk](nk/README.md) for durable tasks and
+[Maintain tasks](skills/maintain-tasks/SKILL.md) for task context.

@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 
 from . import task, workspace
 
 
-Command = Callable[[list[str] | None], int]
-
-
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="nk")
-    result.add_argument("command", nargs="?", choices=("task", "workspace"))
+    result.add_argument("command", nargs="?", choices=("init", "root", "task"))
     return result
 
 
@@ -22,9 +19,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser().print_help(sys.stdout if arguments else sys.stderr)
         return 0 if arguments else 2
     command, rest = arguments[0], arguments[1:]
-    handlers: dict[str, Command] = {"task": task.main, "workspace": workspace.main}
-    handler = handlers.get(command)
-    if handler is not None:
-        return handler(rest)
+    if command == "task":
+        return task.main(rest)
+    if command in ("init", "root"):
+        return workspace.main(arguments)
     parser().error(f"unknown command: {command}")
     return 2

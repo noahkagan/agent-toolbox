@@ -1,18 +1,24 @@
 # nk
 
-`nk` owns durable task lifecycle and coordination in an initialized workspace.
-It does not manage the workspace's repositories; use `meta` for that.
+`nk` preserves task context across sessions. It manages a Markdown
+index and task documents inside an initialized workspace.
+
+The [durable task model](task-model.md) defines the files and state meanings.
+Git and forge tools own commits, branches, pull requests, review, and merge.
+Use `meta` separately when a workspace contains multiple repositories.
 
 ## Workspace data
 
-Run `nk workspace init` at a Git control-repository root. It creates the
+Run `nk init` at a Git control-repository root. It creates the
 `.nk/workspace` marker, `TODO.md`, and `scratch/`. Resolve the owning workspace
-from any descendant with `nk workspace root`.
+from any descendant with `nk root`.
 
 `TODO.md` is the task index. Each entry links to one
-`scratch/<slug>/README.md`. `scratch/<slug>/` contains the task specification,
-journal, optional manifest, and lifecycle evidence. Create a task with
-`nk task create <slug>` rather than creating those files manually.
+`scratch/<slug>/README.md`. That file holds the current task definition.
+`scratch/<slug>/JOURNAL.md` holds durable updates and the next restart point.
+
+Create a task with `nk task create <slug>`. It starts in Needs More Info with
+both documents ready for refinement.
 
 ## Slugs
 
@@ -26,26 +32,17 @@ The date and nonempty lowercase kebab-case description are required. The
 optional tracker segment is a GitHub issue (`gh-N`), Linear issue (`lin-N`), or
 uppercase project key and number (`PROJECT-N`).
 
-## Lifecycle
+## Task index
 
-`TODO.md` has these state buckets: `Blocked`, `Authoring`, `Review`, `Ready`,
-`Done`, `Backlog`, and `Cancelled`. Use `nk task` commands to create, validate,
-move, claim, submit, review, and complete tasks. Do not edit lifecycle-managed
-files directly.
+Sections appear in this order: In Progress, Ready, Needs More Info, then
+Archived.
 
-Run `nk task --help` for commands and `nk task <command> --help` for required
-arguments. Run `nk task check --workspace <root> <slug>` to verify a task is
-ready for authoring.
+Use `move` between the first three sections. Use `archive` to move a task to
+Archived. Use `reopen` to return it to one of the first three sections. Use
+`reorder` to change priority within one section.
 
-## Candidate targets
+Run `nk task check <slug>` to validate the indexed task files. This command
+does not assess specification quality. Use the `refine-spec` skill for that.
 
-`nk task submit` targets each candidate pull request at its repository's remote
-default branch unless told otherwise. Pass `--target REPOSITORY=BRANCH` once
-per repository that needs another target. The branch must already exist on that
-repository's `origin`; `nk` records it as `refs/heads/BRANCH` in
-`candidate.json` and uses that recorded reference during review publication.
-
-```sh
-nk task submit --slug 2026-08-04-example --repository group/project \
-  --target group/project=integration
-```
+Run `nk task --help` for the complete command list. Run
+`nk task <command> --help` for command arguments.
