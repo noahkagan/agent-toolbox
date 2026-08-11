@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -13,17 +12,13 @@ MARKER = Path(".nk/workspace")
 MARKER_CONTENT = "1\n"
 TODO_CONTENT = """# TODO
 
-## Blocked
-
-## Authoring
-
-## Review
+## In Progress
 
 ## Ready
 
-## Done
+## Needs More Info
 
-## Backlog
+## Done
 
 ## Cancelled
 """
@@ -80,7 +75,10 @@ def validate_registry(root: Path) -> tuple[bool, bool]:
         from .task import parse_todo
 
         try:
-            buckets, _ = parse_todo(todo.read_text(encoding="utf-8"), root if scratch_exists else None)
+            buckets = parse_todo(
+                todo.read_text(encoding="utf-8"),
+                root if scratch_exists else None,
+            )
         except RuntimeError as exc:
             raise WorkspaceError(str(exc)) from exc
     entries = sorted(scratch.iterdir()) if scratch_exists else []
@@ -156,18 +154,10 @@ def require_root(path: Path) -> Path:
     return root
 
 
-def reset(path: Path) -> Path:
-    root = find_root(path)
-    shutil.rmtree(root / MARKER.parent)
-    (root / "TODO.md").unlink()
-    shutil.rmtree(root / "scratch")
-    return initialize(root)
-
-
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="nk workspace")
     subparsers = result.add_subparsers(dest="command", required=True)
-    for name in ("init", "root", "reset"):
+    for name in ("init", "root"):
         command = subparsers.add_parser(name)
         command.add_argument("path", nargs="?", default=".")
     return result
@@ -180,11 +170,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "init":
             root = initialize(path)
             print(f"INITIALIZED\t{root}")
-        elif args.command == "root":
-            print(find_root(path))
         else:
-            root = reset(path)
-            print(f"RESET\t{root}")
+            print(find_root(path))
     except (OSError, WorkspaceError) as exc:
         print(f"ERROR\t{exc}", file=sys.stderr)
         return 1
