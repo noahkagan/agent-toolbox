@@ -12,9 +12,9 @@ from pathlib import Path
 from . import workspace as workspace_registry
 
 
-ACTIVE_STATES = ("In Progress", "Ready", "Needs More Info")
+MOVE_TARGETS = ("In Progress", "Ready", "Needs More Info")
 ARCHIVE_STATES = ("Done", "Cancelled")
-QUEUE_ORDER = (*ACTIVE_STATES, *ARCHIVE_STATES)
+QUEUE_ORDER = (*MOVE_TARGETS, *ARCHIVE_STATES)
 TASK_RE = re.compile(r"^- \[`([^`]+)`\]\((scratch/[^)]+/README\.md)\)$")
 SLUG_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})-"
@@ -171,8 +171,8 @@ def move(workspace: Path, slug: str, target: str) -> None:
     source = validate_task(workspace, slug)
     if source in ARCHIVE_STATES:
         raise TaskError(f"archived task must be reopened: {slug}")
-    if target not in ACTIVE_STATES:
-        raise TaskError(f"invalid active state: {target}")
+    if target not in MOVE_TARGETS:
+        raise TaskError(f"invalid move target: {target}")
     if source == target:
         print(f"MOVED\t{slug}\t{target}")
         return
@@ -183,13 +183,13 @@ def move(workspace: Path, slug: str, target: str) -> None:
     print(f"MOVED\t{slug}\t{target}")
 
 
-def archive(workspace: Path, slug: str, disposition: str) -> None:
+def archive(workspace: Path, slug: str, target: str) -> None:
     source = validate_task(workspace, slug)
     if source in ARCHIVE_STATES:
         raise TaskError(f"task is already archived: {slug}")
-    if disposition not in ("done", "cancelled"):
-        raise TaskError(f"invalid archive disposition: {disposition}")
-    target = {"done": "Done", "cancelled": "Cancelled"}[disposition]
+    if target not in ("done", "cancelled"):
+        raise TaskError(f"invalid archive target: {target}")
+    target = {"done": "Done", "cancelled": "Cancelled"}[target]
     _, grouped = tracker(workspace)
     grouped[source].remove(slug)
     grouped[target].append(slug)
@@ -201,8 +201,8 @@ def reopen(workspace: Path, slug: str, target: str) -> None:
     source = validate_task(workspace, slug)
     if source not in ARCHIVE_STATES:
         raise TaskError(f"task is not archived: {slug}")
-    if target not in ACTIVE_STATES:
-        raise TaskError(f"invalid active state: {target}")
+    if target not in MOVE_TARGETS:
+        raise TaskError(f"invalid reopen target: {target}")
     _, grouped = tracker(workspace)
     grouped[source].remove(slug)
     grouped[target].append(slug)
@@ -243,17 +243,17 @@ def parser() -> argparse.ArgumentParser:
     command = subparsers.add_parser("move")
     command.add_argument("slug")
     command.add_argument("--workspace")
-    command.add_argument("--to", choices=ACTIVE_STATES, required=True)
+    command.add_argument("--to", choices=MOVE_TARGETS, required=True)
 
     command = subparsers.add_parser("archive")
     command.add_argument("slug")
     command.add_argument("--workspace")
-    command.add_argument("--as", dest="disposition", choices=("done", "cancelled"), required=True)
+    command.add_argument("--as", dest="target", choices=("done", "cancelled"), required=True)
 
     command = subparsers.add_parser("reopen")
     command.add_argument("slug")
     command.add_argument("--workspace")
-    command.add_argument("--to", choices=ACTIVE_STATES, required=True)
+    command.add_argument("--to", choices=MOVE_TARGETS, required=True)
 
     command = subparsers.add_parser("reorder")
     command.add_argument("slug")
@@ -281,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "move":
             move(workspace, args.slug, args.to)
         elif args.command == "archive":
-            archive(workspace, args.slug, args.disposition)
+            archive(workspace, args.slug, args.target)
         elif args.command == "reopen":
             reopen(workspace, args.slug, args.to)
         else:

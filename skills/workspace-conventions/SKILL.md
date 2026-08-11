@@ -20,7 +20,7 @@ commands. Do not infer the workspace from a Git root or repository layout.
 `nk` owns the task index, task documents, placement, and slug format. Use the
 [durable task model](../../nk/task-model.md) and `nk task --help`.
 
-Read `TODO.md` first when reorienting. Its active sections are In Progress,
+Read `TODO.md` first when reorienting. Its first sections are In Progress,
 Ready, and Needs More Info, in that order.
 
 Read `scratch/<slug>/README.md` for the current task definition. Read

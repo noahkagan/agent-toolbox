@@ -11,16 +11,14 @@ keywords:
 `nk` preserves work across sessions. It does not coordinate agents,
 own implementation branches, publish candidates, or mirror external review.
 
-`TODO.md` is the workspace entry point. Its active sections appear in attention
-order: In Progress, Ready, then Needs More Info. In Progress means implementation
-started. Ready means the task has a specification that a fresh session can execute
-and validate. Needs More Info means the task has never reached that specification
-granularity.
+`TODO.md` is the workspace entry point. Its sections appear in attention order:
+In Progress, Ready, Needs More Info, Done, then Cancelled. In Progress means
+implementation started. Ready means the task has a specification that a fresh
+session can execute and validate. Needs More Info means the task has never reached
+that specification granularity.
 
-Done and Cancelled retain inactive tasks at the bottom of the same index. They are
-archive dispositions rather than active workflow states. A task may move directly
-between active sections because the index reports current orientation, not an
-enforced lifecycle.
+Done and Cancelled archive tasks. A task may move directly among the first three
+sections because the index reports current orientation, not an enforced lifecycle.
 
 Each stable task slug may include a GitHub, Linear, or project tracker identifier.
 Its `scratch/<slug>/README.md` holds the current task definition. Its
@@ -39,5 +37,5 @@ branches, pull requests, review, and merge.
 
 ## Uncertainty frontier
 
-- At what archive size would the inactive sections obscure active work enough to
-  justify a separate archive document?
+- At what archive size would archived tasks obscure current work enough to justify
+  a separate archive document?
