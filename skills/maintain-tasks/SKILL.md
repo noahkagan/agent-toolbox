@@ -30,6 +30,9 @@ the task instead of copying them. Use `$maintain-notes` when they change.
 Create tasks with `nk task create <slug>`. Stage undefined work in Needs More
 Info. Use `$refine-spec` when the task needs an executable specification.
 
+Task definitions list expected repository changes and expected file changes.
+Use `None` when no changes are expected.
+
 Decompose an independently useful outcome into its own task. Link related
 tasks directly and keep each requirement in one canonical task.
 

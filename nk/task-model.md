@@ -17,6 +17,9 @@ implementation started. Ready means the task has a specification that a fresh
 session can execute and validate. Needs More Info means the task has never reached
 that specification granularity.
 
+A Ready task states expected repository changes and expected file changes, or
+`None`.
+
 Archived collects tasks that no longer need attention. A task may move directly
 among the first three sections because the index reports current orientation, not
 an enforced lifecycle.

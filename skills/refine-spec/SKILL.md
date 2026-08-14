@@ -56,12 +56,14 @@ Use these sections in order:
 1. **Mission statement:** one observable outcome and beneficiary.
 2. **Requirements:** behavior required to achieve the mission.
 3. **Non-goals:** plausible scope inferences that are excluded.
-4. **Constraints:** rules every acceptable solution must obey.
-5. **Invariants:** truths that must remain true.
-6. **Contract or interface changes:** affected behavior and consumers, or None.
-7. **Validation boundaries:** durable evidence that protects named behavior.
-8. **Acceptance criteria:** observable conditions that jointly prove success.
-9. **Derisk sequence:** cheapest conclusive tests for material assumptions, or
+4. **Expected repository changes:** repositories expected to change, or None.
+5. **Expected file changes:** expected paths, or None.
+6. **Constraints:** rules every acceptable solution must obey.
+7. **Invariants:** truths that must remain true.
+8. **Contract or interface changes:** affected behavior and consumers, or None.
+9. **Validation boundaries:** durable evidence that protects named behavior.
+10. **Acceptance criteria:** observable conditions that jointly prove success.
+11. **Derisk sequence:** cheapest conclusive tests for material assumptions, or
    None.
 
 Do not prescribe test design, implementation sequence, review milestones, or
@@ -75,6 +77,7 @@ choosing unstated behavior. Inspect the repository only enough to verify:
 1. Named entities and seams exist and plausibly support the outcome.
 2. The task does not silently reverse a durable decision.
 3. Compatibility requirements have authoritative provenance.
+4. Expected repository and file changes are stated separately, or as None.
 
 Confirm that every statement is necessary, consistent, possible, and
 verifiable. Confirm that acceptance criteria distinguish a correct result from
@@ -94,7 +97,7 @@ Use `Spec repair` for correctable specification defects. Use `Human decision`
 for missing intent, consequential tradeoffs, or implicit decision reversals.
 Do not add scores, suggestions, plans, or file edits in Review mode.
 
-In Write mode, return only the nine specification sections and required
+In Write mode, return only the eleven specification sections and required
 context. In Refine mode, repeat writing and review until Ready. Return the
 updated specification when Ready. Stop with the Review verdict when any `Human
 decision` finding remains.
