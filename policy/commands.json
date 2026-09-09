@@ -64,6 +64,7 @@
       "test",
       "timeout",
       "true",
+      "ulimit",
       "uniq"
     ]
   }
