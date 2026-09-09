@@ -16,6 +16,7 @@
       "conan",
       "ctest",
       "dirname",
+      "docker",
       "dpkg-query",
       "env",
       "find",
