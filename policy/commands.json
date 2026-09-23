@@ -69,7 +69,8 @@
       "tsh",
       "ulimit",
       "uniq",
-      "uv"
+      "uv",
+      "yatp"
     ]
   }
 }
