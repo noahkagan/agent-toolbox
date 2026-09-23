@@ -27,6 +27,7 @@
       "head",
       "hf",
       "jq",
+      "kill",
       "ldd",
       "ln",
       "ls",
