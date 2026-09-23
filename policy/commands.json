@@ -79,6 +79,7 @@
       "ulimit",
       "uniq",
       "uv",
+      "wc",
       "yatp"
     ]
   }
