@@ -16,6 +16,7 @@
       "conan",
       "ctest",
       "curl",
+      "df",
       "dirname",
       "docker",
       "dpkg-query",
