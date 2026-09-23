@@ -4,6 +4,7 @@
       "./install.sh",
       "./project.sh",
       "[",
+      "addr2line",
       "apply_patch",
       "apt-cache",
       "awk",
