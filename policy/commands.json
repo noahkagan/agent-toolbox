@@ -64,6 +64,7 @@
       "rmdir",
       "sed",
       "sh",
+      "sha256sum",
       "sort",
       "ssh",
       "ssh-add",
