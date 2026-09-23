@@ -18,6 +18,7 @@ the best code is the code never written.
   artifacts made obsolete by your own change. Preserve existing style and flag
   unrelated cleanup rather than performing it, even when it would be an
   improvement.
+- Keep behavior changes and refactors in separate commits.
 - Treat recurring edge-case or test-correction churn as evidence to reconsider
   the design from first principles, rather than continuing to patch symptoms.
 - Reuse existing dependencies, libraries, algorithms, and shared logic when
