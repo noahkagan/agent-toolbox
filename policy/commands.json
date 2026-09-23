@@ -16,6 +16,7 @@
       "conan",
       "ctest",
       "curl",
+      "date",
       "df",
       "dirname",
       "docker",
