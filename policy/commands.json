@@ -33,6 +33,7 @@
       "meta",
       "mkdir",
       "mktemp",
+      "mv",
       "nk",
       "node",
       "nvcc",
