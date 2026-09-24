@@ -27,6 +27,7 @@
       "env",
       "find",
       "findmnt",
+      "gdb",
       "gh",
       "git",
       "head",
