@@ -26,6 +26,10 @@ the best code is the code never written.
   sibling functions, identify their required data transformations and shared
   physical work. If they differ only by a transformation, implement the shared
   work once and compose the transformation around it.
+- Use subagents for independent tasks when parallel work will reduce completion
+  time. Delegate assumption checks and detailed tracing when they require
+  substantial time or context and would disrupt the main task. Handle quick
+  checks directly. Give each subagent a bounded task and verify its results.
 - Always prefer composition over inheritance.
 - Always prefer async over sync, unless there is a latency concern.
 - Choose data model representations where it is impossible to represent bad
