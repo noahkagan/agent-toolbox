@@ -5,84 +5,47 @@ description: Iteratively improve a target system's measured performance using da
 
 # Optimize from evidence
 
-Start from required outputs and actual consumer needs. Before optimizing any
-cost, determine whether the work is necessary. Prefer eliminating unnecessary
-work over accelerating it.
+Follow these steps in order, repeating where indicated and carrying accumulated improvements and evidence forward until the stopping condition is met.
+Summarize each step to the user, progressively maintain tasks and notes in their designated locations, and commit and push those updates to make them durable.
 
-## Establish the model and baseline
+1. **Measure the accumulated system.** Establish reproducible baselines for
+   representative workloads and scales on the aggregate improvement branch.
+   Refresh measurements and reuse applicable profiling evidence. Measure completed
+   useful work and consumer outcomes; distinguish execution, waiting, and overlap.
+2. **Generate and rank hypotheses.** Trace costs from what the original producer
+   provides to what the final consumer needs, across service boundaries.
+   Identify the largest end-to-end opportunities. Check tasks and notes for
+   previous findings and exclusions. Rank by expected benefit, confidence, and
+   remaining cost. If no worthwhile hypothesis remains, go to step 6.
+3. **Resolve ranking uncertainty.** Investigate underlying capabilities or physical
+   throughput constraints only when the result could change which improvement
+   to attempt next. State the ranking decision, possible outcomes, and cost
+   bound. Use source inspection, targeted research, or the smallest experiment.
+   Bound total investigation cost for this selection round. Re-rank after each
+   result; repeat only when the expected value of changing the choice justifies
+   the remaining cost. Park blocked or over-budget investigations.
+4. **Test the leading improvement.** State the hypothesis, expected outcome, and
+   evidence that would support or reject it. Implement on an isolated branch
+   or worktree from the aggregate branch. Measure against both the previous
+   accumulated version and original baseline under comparable conditions.
+5. **Retain or exclude.** Qualify accumulated changes together across representative
+   workloads, checking correctness, ownership, completion guarantees, and measurement
+   variation. Targeted benefits are sufficient if other workloads do not regress.
+   Add qualified improvements to the aggregate branch and update one draft PR
+   per repository; do not merge it. Revert rejected implementation changes while
+   preserving the tested hypothesis, evidence, and exclusion. Progressively record
+   results, reproduction details, and unresolved questions in designated tasks
+   and notes; distinguish facts from inference.
+6. **Repeat from the accumulated system.** Return to step 1 with retained
+   improvements and hypothesis history. Revisit exclusions only with new evidence.
+   Stop only when no worthwhile hypothesis remains and a bounded search identifies
+   no new worthwhile hypothesis.
 
-Trace computation, representation changes, data movement, allocation,
-ownership, and synchronization from inputs to consumed outputs. Identify what
-limits completed useful work.
-
-Treat cadence, ordering, synchronization, and work-in-flight limits as design
-variables unless explicitly required. Evaluate changes through end-to-end
-performance and consumer behavior, not conformity to existing execution.
-Preserve correctness, ownership, and completion guarantees.
-
-Establish reproducible baselines for representative workloads and scales.
-Record the revision, environment, inputs, commands, measurement boundaries,
-and run-to-run variation needed to reproduce comparisons.
-
-Use existing evidence first. Choose instrumentation and profiling tools to
-resolve important uncertainties. Distinguish execution, waiting, and overlapping
-work; do not sum overlapping durations as elapsed time. Measure completion,
-not merely submission or work moved outside the measurement boundary.
-
-## Experiment and qualify
-
-Trace end-to-end producer-to-consumer paths across systems and services,
-starting from what the original producer naturally provides and what the
-final consumer actually needs. Treat service boundaries as design choices,
-not limits on the analysis. Question intermediate representations, copies,
-ownership transitions, and synchronization.
-
-Use source inspection and targeted web research to develop competing ways
-to connect those endpoints. Keep promising implementations selectable,
-reuse common logic, and compare them across representative workloads and scales.
-
-Rank hypotheses by expected performance impact, supporting evidence, and
-experiment cost. Consider removing work, simplifying representations, batching,
-parallelization, pipelining, and asynchronous execution. No mechanism is
-inherently faster.
-
-Before each leading experiment, recheck the assignment's tasks and notes for
-previous findings and exclusions. State the hypothesis, expected outcome, and
-evidence that would support or reject it. Revisit exclusions when new evidence
-justifies doing so, and record that evidence.
-
-Implement the leading hypothesis on top of accumulated improvements. Run
-focused experiments that distinguish the proposed explanation from alternatives.
-Keep measurements free from competing experiments or resource contention
-introduced by the investigation.
-
-Qualify the accumulated changes together against representative workloads.
-Compare completed useful work and relevant consumer outcomes against both the
-previous accumulated version and the original baseline under comparable
-conditions. Measure incremental and total benefit. Check correctness, ownership,
-and completion guarantees alongside performance. Distinguish measured changes
-from run-to-run variation.
-
-Improvements may target specific situations or scales; they need not benefit
-every workload, provided they do not regress others. State the demonstrated
-benefit and the limits of qualification. Make each improvement durable after
-qualification passes, before starting the next iteration. Re-rank hypotheses
-using the new evidence; the limiting constraint may have changed.
-Stop when remaining hypotheses lack enough expected value to justify experiments.
-
-## Preserve results
-
-Make all demonstrated improvements durable in one draft PR per repository.
-Update that PR as improvements accumulate. Include reproduction details,
-before-and-after measurements, correctness checks, and qualification limits.
-Do not merge the PRs.
-
-Progressively publish concise tasks and notes to the assignment's designated
-locations. Record hypotheses, expectations, observations, outcomes, exclusions,
-reproduction details, and unresolved questions. Distinguish verified facts
-from inference. Link canonical evidence instead of duplicating it.
-
+Prefer eliminating unnecessary work over accelerating it. Question computation,
+representations, copies, allocation, ownership transitions, and synchronization.
+Consider simpler representations, batching, parallelization, pipelining, and
+asynchronous execution; no mechanism is inherently faster. Treat cadence,
+ordering, service boundaries, and work-in-flight limits as design choices unless
+required. Preserve correctness and consumer guarantees, and reuse common logic.
 Use subagents for independent research, implementation, and assumption checks
-when they accelerate progress without conflicting edits or competing
-measurements. Give each subagent a bounded scope and coordinate access to
-measurement resources.
+when they accelerate progress without conflicting edits or competing measurements.
