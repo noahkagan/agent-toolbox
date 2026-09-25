@@ -16,6 +16,7 @@
       "cmake",
       "command",
       "conan",
+      "cp",
       "ctest",
       "curl",
       "date",
