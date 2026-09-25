@@ -47,6 +47,7 @@
       "nsys",
       "nvcc",
       "nvidia-smi",
+      "objdump",
       "perf",
       "pgrep",
       "pip",
