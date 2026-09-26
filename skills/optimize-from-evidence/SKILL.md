@@ -8,9 +8,10 @@ description: Iteratively improve a target system's measured performance using da
 Follow these steps in order, repeating where indicated and carrying accumulated improvements and evidence forward until the stopping condition is met.
 Summarize each step to the user, progressively maintain tasks and notes in their designated locations, and commit and push those updates to make them durable.
 
-1. **Measure the accumulated system.** Establish reproducible baselines for
-   representative workloads and scales on the aggregate improvement branch.
-   Refresh measurements and reuse applicable profiling evidence. Measure completed
+1. **Establish or reuse evidence.** Use reproducible baselines for representative
+   workloads and scales. Reuse baselines and profiling while relevant binaries,
+   workloads, configuration, hardware, and operating conditions remain comparable.
+   State what invalidates existing evidence before remeasuring. Measure completed
    useful work and consumer outcomes; distinguish execution, waiting, and overlap.
 2. **Generate and rank hypotheses.** Trace costs from what the original producer
    provides to what the final consumer needs, across service boundaries.
@@ -27,7 +28,9 @@ Summarize each step to the user, progressively maintain tasks and notes in their
 4. **Test the leading improvement.** State the hypothesis, expected outcome, and
    evidence that would support or reject it. Implement on an isolated branch
    or worktree from the aggregate branch. Measure against both the previous
-   accumulated version and original baseline under comparable conditions.
+   accumulated version and original baseline under comparable conditions. Screen
+   candidates cheaply; repeat measurements only when resolving uncertainty could
+   change implementation or retention.
 5. **Retain or exclude.** Qualify accumulated changes together across representative
    workloads, checking correctness, ownership, completion guarantees, and measurement
    variation. Targeted benefits are sufficient if other workloads do not regress.
