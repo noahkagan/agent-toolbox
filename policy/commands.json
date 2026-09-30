@@ -3,6 +3,8 @@
     "allow": [
       "./install.sh",
       "./project.sh",
+      "./run.sh",
+      "./setup.sh",
       "[",
       "addr2line",
       "apply_patch",
