@@ -47,6 +47,7 @@
       "mv",
       "nk",
       "node",
+      "npx",
       "nsys",
       "nvcc",
       "nvidia-smi",
