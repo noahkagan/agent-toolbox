@@ -78,6 +78,7 @@
       "ssh-add",
       "ssh-agent",
       "ssh-keygen",
+      "stat",
       "subl",
       "tail",
       "test",
