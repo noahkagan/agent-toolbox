@@ -9,9 +9,14 @@ Run `nk root` before reading or changing tasks. Use only the returned workspace
 for `TODO.md`, `scratch/`, and `nk task` commands. Do not infer it from a Git
 root or repository layout.
 
-Read `TODO.md` first when reorienting. Then read the selected task's complete
-`README.md` and `JOURNAL.md`. Follow links to applicable project instructions
-and canonical notes.
+Read `TODO.md` only when locating a task or checking priorities. Read the selected
+task's `README.md` for scope and constraints, then recent `JOURNAL.md` entries for
+current progress and next steps.
+
+Read enough to identify the next action, its constraints, and how to verify it.
+Follow older entries and linked sources when a decision, uncertainty, or
+contradiction requires more context. Deepen reading before making decisions that
+depend on missing history. Always follow applicable project instructions.
 
 Use the [durable task model](../../nk/task-model.md) as the authority for file
 roles, placement, and slugs.
