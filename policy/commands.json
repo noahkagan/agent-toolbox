@@ -53,6 +53,7 @@
       "nvcc",
       "nvidia-smi",
       "objdump",
+      "osascript",
       "perf",
       "pgrep",
       "pip",
