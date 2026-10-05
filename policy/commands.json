@@ -6,6 +6,7 @@
       "./repo.sh",
       "./run.sh",
       "./scripts/run.sh",
+      "./scripts/setup.sh",
       "./setup.sh",
       "[",
       "addr2line",
