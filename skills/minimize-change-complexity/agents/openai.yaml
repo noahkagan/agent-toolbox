@@ -1,0 +1,4 @@
+interface:
+  display_name: "Minimize Change Complexity"
+  short_description: "Audit commit growth and simplify the result"
+  default_prompt: "Use $minimize-change-complexity to audit every commit in this change and repair unnecessary complexity."
