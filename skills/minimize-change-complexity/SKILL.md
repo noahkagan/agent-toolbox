@@ -15,6 +15,9 @@ For each commit, oldest first:
    interface complexity.
    Split files that own unrelated concepts or transformations. Keep each file
    centered on one coherent ownership boundary; never split by line count alone.
+   Keep preprocessor, compiler, and feature conditionals at import or export
+   boundaries. Isolate implementations behind one shared interface; shared code
+   selects capabilities at runtime.
 3. Remove or rewrite tests that pin private helpers, internal structure,
    dependency choices, or intermediate steps. Test behavior only through public
    interface seams.
