@@ -13,6 +13,8 @@ For each commit, oldest first:
 2. Consider whether better factoring, more concise code, better ownership,
    clearer linearity, or uniform control surfaces could reduce overload or
    interface complexity.
+   Split files that own unrelated concepts or transformations. Keep each file
+   centered on one coherent ownership boundary; never split by line count alone.
 3. Remove or rewrite tests that pin private helpers, internal structure,
    dependency choices, or intermediate steps. Test behavior only through public
    interface seams.
