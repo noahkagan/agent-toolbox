@@ -58,4 +58,8 @@ rm -rf -- "$HOME/.agents/skills" "$HOME/.claude/skills"
 ln -s "$source_root/skills" "$HOME/.agents/skills"
 ln -s "$source_root/skills" "$HOME/.claude/skills"
 
+if [ ! -e "$HOME/.tmux.conf" ] && [ ! -L "$HOME/.tmux.conf" ]; then
+  printf 'set -g history-limit 100000\n' > "$HOME/.tmux.conf"
+fi
+
 printf 'Installed agent-toolbox from %s\n' "$source_root"

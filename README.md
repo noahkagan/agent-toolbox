@@ -23,6 +23,8 @@ The installer links the instructions, skills, and `nk` command into your home
 directory. Existing regular files at the instruction or command destinations
 cause installation to stop. Existing `~/.agents/skills` and
 `~/.claude/skills` paths are replaced by links to this checkout.
+If `~/.tmux.conf` is missing, the installer creates it with a history limit of
+100,000 lines. Existing tmux configuration files and symlinks are preserved.
 
 Ensure `~/.local/bin` is on `PATH`, then verify the installation:
 

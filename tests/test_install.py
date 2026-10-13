@@ -24,7 +24,13 @@ with tempfile.TemporaryDirectory() as directory:
         encoding="utf-8",
     )
     subprocess.run([root / "install.sh"], env=environment, check=True)
+    tmux_config = home / ".tmux.conf"
+    assert tmux_config.read_text() == "set -g history-limit 100000\n"
     subprocess.run([root / "install.sh"], env=environment, check=True)
+    assert tmux_config.read_text() == "set -g history-limit 100000\n"
+    tmux_config.write_text("set -g history-limit 5000\n")
+    subprocess.run([root / "install.sh"], env=environment, check=True)
+    assert tmux_config.read_text() == "set -g history-limit 5000\n"
 
     assert (home / ".codex/AGENTS.md").resolve() == root / "AGENTS.md"
     assert (home / ".claude/CLAUDE.md").resolve() == root / "AGENTS.md"
