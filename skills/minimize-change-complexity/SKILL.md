@@ -18,13 +18,16 @@ For each commit, oldest first:
    Keep preprocessor, compiler, and feature conditionals at import or export
    boundaries. Isolate implementations behind one shared interface; shared code
    selects capabilities at runtime.
-3. Remove or rewrite tests that pin private helpers, internal structure,
+3. Prefer the narrowest necessary visibility. Expose only what callers need to
+   fulfill their contracts or responsibilities, including decisions, routing, and
+   transformation. Keep implementation choices private.
+4. Remove or rewrite tests that pin private helpers, internal structure,
    dependency choices, or intermediate steps. Test behavior only through public
    interface seams.
-4. Remove documentation of private design choices, dependency choices,
+5. Remove documentation of private design choices, dependency choices,
    internal structure, or tuning constants. Document only durable behavior at
    public interface seams.
-5. Make each worthwhile repair in the current worktree.
+6. Make each worthwhile repair in the current worktree.
 
 Do not reduce lines at the expense of behavior, clarity, or verification.
 Preserve history unless the user requests rewriting it.
