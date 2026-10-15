@@ -39,6 +39,7 @@
       "git",
       "head",
       "hf",
+      "id",
       "jq",
       "kill",
       "ldd",
