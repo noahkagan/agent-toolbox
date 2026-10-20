@@ -39,6 +39,7 @@
       "git",
       "head",
       "hf",
+      "hostname",
       "id",
       "jq",
       "kill",
