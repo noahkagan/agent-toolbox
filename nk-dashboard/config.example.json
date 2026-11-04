@@ -1,0 +1,34 @@
+{
+  "agents": [
+    {
+      "name": "worker-1"
+    },
+    {
+      "name": "worker-2"
+    },
+    {
+      "name": "worker-3"
+    }
+  ],
+  "commands": {
+    "assign": [
+      "codemux",
+      "send",
+      "{agent}",
+      "--message",
+      "You are assigned {id}: {task}. Mission: {mission}. Task: {url}. Read the task specification and journal, then complete the task. Keep the journal current and report results."
+    ],
+    "unassign": [
+      "codemux",
+      "send",
+      "{agent}",
+      "--message",
+      "Stop work on {id}. Record your progress and next steps in its journal, then wait for another assignment."
+    ]
+  },
+  "workspace": {
+    "path": "~/work",
+    "remote": "origin",
+    "branch": "main"
+  }
+}
