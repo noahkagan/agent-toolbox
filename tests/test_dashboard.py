@@ -16,12 +16,28 @@ with tempfile.TemporaryDirectory() as directory:
     run('render')
     assert not (store / 'assignments.json').exists()
     run('set', 'suppress', '--agent', 'gke-2', '--task', 'Product suppression', '--mission', 'Keep a sibling rendering.', '--url', 'https://example.org/task')
-    run('set', 'suppress', '--status', 'working', '--note', 'Testing native calls.')
+    run('set', 'suppress', '--agent', 'gke-3')
     data = json.loads(run('list').stdout)['assignments']
     assert data['suppress']['mission'] == 'Keep a sibling rendering.'
-    assert data['suppress']['status'] == 'working'
-    run('set', 'suppress', '--status', 'blocked', '--note', '')
-    assert json.loads(run('list').stdout)['assignments']['suppress']['note'] == ''
+    assert data['suppress']['agent'] == 'gke-3'
+    before_duplicate = (store / 'assignments.json').read_bytes()
+    run('set', 'duplicate', '--agent', ' GKE-3 ', '--task', 'Other task', '--mission', 'Other mission', ok=False)
+    assert (store / 'assignments.json').read_bytes() == before_duplicate
+    run('set', 'suppress', '--task', 'Render admission')
+    assert 'note' not in json.loads(run('list').stdout)['assignments']['suppress']
+    # Old stores may contain notes; retire them without changing report timestamps.
+    legacy = json.loads((store / 'assignments.json').read_text())
+    legacy['assignments']['suppress']['note'] = 'Stale progress'
+    legacy['assignments']['suppress']['status'] = 'blocked'
+    (store / 'assignments.json').write_text(json.dumps(legacy))
+    assert 'note' not in json.loads(run('list').stdout)['assignments']['suppress']
+    run('render')
+    assert 'Latest note' not in (store / 'index.html').read_text()
+    assert 'Stale progress' not in (store / 'index.html').read_text()
+    assert 'status' not in json.loads(run('list').stdout)['assignments']['suppress']
+    for removed in ('class="metrics"', 'class="filters"', 'class="badge', 'class="avatar"', 'A record of responsibility.'):
+        assert removed not in (store / 'index.html').read_text()
+    assert 'id="search"' in (store / 'index.html').read_text()
     before = (store / 'assignments.json').read_bytes()
     run('set', 'bad', '--agent', 'nobody', ok=False)
     run('set', 'suppress', '--mission', ' ', ok=False)
@@ -39,12 +55,17 @@ with tempfile.TemporaryDirectory() as directory:
         assert writer.returncode == 0, stderr
     data = json.loads(run('list').stdout)['assignments']
     assert len(data) == 14
+    run('set', 'parallel-1', '--agent', 'agent-0', ok=False)
     html = (store / 'index.html').read_text()
     assert html.count('<article class="card"') == 14
     run('remove', 'unsafe')
     run('remove', 'missing', ok=False)
+    duplicate = json.loads((store / 'assignments.json').read_text())
+    duplicate['assignments']['collision'] = dict(duplicate['assignments']['suppress'])
+    (store / 'assignments.json').write_text(json.dumps(duplicate))
+    run('render', ok=False)
     (store / 'assignments.json').write_text('{broken')
-    run('set', 'suppress', '--status', 'done', ok=False)
+    run('set', 'suppress', '--agent', 'gke-2', ok=False)
     assert (store / 'assignments.json').read_text() == '{broken'
     assert not list(store.glob('.assignments.json*'))
     default = Path(directory) / 'default'

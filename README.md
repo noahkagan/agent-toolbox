@@ -54,7 +54,7 @@ dashboard set example --agent worker-1 --task "Review a change" --mission "Ident
 dashboard
 ```
 
-Open the printed HTML path. See [dashboard](dashboard/README.md) for updates, statuses, and storage.
+Open the printed HTML path. See [dashboard](dashboard/README.md) for updates and storage.
 
 ## Test
 

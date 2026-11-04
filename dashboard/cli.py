@@ -10,8 +10,7 @@ from pathlib import Path
 import tempfile
 from urllib.parse import urlsplit
 
-STATUSES = ('working', 'blocked', 'queued', 'paused', 'done')
-FIELDS = ('agent', 'task', 'mission', 'status', 'note', 'url')
+FIELDS = ('agent', 'task', 'mission', 'url')
 
 
 def link_url(value):
@@ -31,6 +30,7 @@ def read_store(path):
     if not isinstance(data, dict) or data.get('version') != 1 or not isinstance(data.get('assignments'), dict):
         raise ValueError('Expected version 1 with an assignments object')
     records = data['assignments']
+    agents = set()
     for key, record in records.items():
         if not key.strip() or not isinstance(record, dict):
             raise ValueError('Invalid assignment record')
@@ -38,8 +38,12 @@ def read_store(path):
             raise ValueError(f'{key}: assignment fields must be strings')
         if any(not record[field].strip() for field in ('agent', 'task', 'mission')):
             raise ValueError(f'{key}: agent, task and mission must be nonempty')
-        if record['status'] not in STATUSES:
-            raise ValueError(f'{key}: invalid status')
+        agent = record['agent'].strip().casefold()
+        if agent in agents:
+            raise ValueError(f"Multiple assignments for agent: {record['agent']}")
+        agents.add(agent)
+        record.pop('note', None)
+        record.pop('status', None)
         datetime.fromisoformat(record['updated_at'])
         link_url(record['url'])
     return records
@@ -68,7 +72,7 @@ def locked(directory):
 
 def render(records):
     cards = []
-    ordered = sorted(records.items(), key=lambda item: (STATUSES.index(item[1]['status']), item[1]['agent'].casefold(), item[0]))
+    ordered = sorted(records.items(), key=lambda item: (item[1]['agent'].casefold(), item[0]))
     for key, record in ordered:
         fields = {name: escape(value, quote=True) for name, value in record.items()}
         url = link_url(record['url'])
@@ -76,17 +80,12 @@ def render(records):
         if url:
             title = f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener noreferrer">{title}<span aria-hidden="true"> ↗</span></a>'
         updated = datetime.fromisoformat(record['updated_at']).astimezone(timezone.utc).strftime('%b %d · %H:%M UTC')
-        note = f'<div class="note"><span>Latest note</span><p>{fields["note"]}</p></div>' if record['note'] else ''
-        cards.append(f'''<article class="card" data-status="{fields['status']}">
-<div class="card-top"><div class="agent"><span class="avatar" aria-hidden="true">{escape(record['agent'][:2].upper())}</span>{fields['agent']}</div><span class="badge {fields['status']}"><i></i>{fields['status']}</span></div>
-<div class="assignment-id">{escape(key)}</div><h2>{title}</h2><p class="mission">{fields['mission']}</p>{note}
-<footer><span>Last reported</span><time datetime="{fields['updated_at']}">{updated}</time></footer></article>''')
-    counts = {status: sum(r['status'] == status for r in records.values()) for status in STATUSES}
-    filters = ''.join(f'<button type="button" data-filter="{s}" aria-pressed="false">{s.capitalize()} <span>{counts[s]}</span></button>' for s in STATUSES)
+        cards.append(f'''<article class="card">
+<div class="card-top"><div class="agent">{fields['agent']}</div></div>
+<div class="assignment-id">{escape(key)}</div><h2>{title}</h2><p class="mission">{fields['mission']}</p>
+<footer><span>Updated</span><time datetime="{fields['updated_at']}">{updated}</time></footer></article>''')
     template = Path(__file__).with_name('page.html').read_text(encoding='utf-8')
-    values = {'cards': '\n'.join(cards), 'total': str(len(records)), 'working': str(counts['working']),
-              'blocked': str(counts['blocked']), 'agents': str(len({r['agent'] for r in records.values()})),
-              'filters': filters, 'generated': datetime.now(timezone.utc).strftime('%b %d, %Y · %H:%M UTC')}
+    values = {'cards': '\n'.join(cards), 'generated': datetime.now(timezone.utc).strftime('%b %d, %Y · %H:%M UTC')}
     for name, value in values.items():
         template = template.replace('<!-- ' + name + ' -->', value)
     return template
@@ -100,7 +99,7 @@ def parser():
     update = commands.add_parser('set', help='create an assignment or update supplied fields; regenerate HTML')
     update.add_argument('id', help='stable assignment ID')
     for field in FIELDS:
-        update.add_argument('--' + field, choices=STATUSES if field == 'status' else None)
+        update.add_argument('--' + field)
     remove = commands.add_parser('remove', help='remove an assignment and regenerate HTML')
     remove.add_argument('id')
     commands.add_parser('list', help='print the assignment store as JSON')
@@ -121,10 +120,12 @@ def main(argv=None):
                     raise ValueError('Assignment ID must be nonempty')
                 record = records.get(args.id, dict.fromkeys(FIELDS, ''))
                 record = {**record, **{field: getattr(args, field) for field in FIELDS if getattr(args, field) is not None}}
-                record['status'] = record['status'] or 'queued'
                 for field in ('agent', 'task', 'mission'):
                     if not record[field].strip():
                         raise ValueError(f'{args.id}: --{field} is required and must be nonempty')
+                for other_id, other in records.items():
+                    if other_id != args.id and other['agent'].strip().casefold() == record['agent'].strip().casefold():
+                        raise ValueError(f"{record['agent']} already has assignment {other_id}; remove it before assigning another task")
                 link_url(record['url'])
                 record['updated_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
                 records[args.id] = record
