@@ -45,6 +45,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert "Bash(git *)" in settings["permissions"]["allow"]
     assert "Bash(./install.sh *)" in settings["permissions"]["allow"]
     assert "Bash(nk *)" in settings["permissions"]["allow"]
+    assert "Bash(nk-dashboard *)" in settings["permissions"]["allow"]
     installed_codex = tomllib.loads(codex_config.read_text(encoding="utf-8"))
     assert installed_codex["sandbox_mode"] == "workspace-write"
     assert installed_codex["sandbox_workspace_write"]["network_access"] is True

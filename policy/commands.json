@@ -51,6 +51,7 @@
       "mktemp",
       "mv",
       "nk",
+      "nk-dashboard",
       "node",
       "npx",
       "nsys",
