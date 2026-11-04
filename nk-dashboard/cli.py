@@ -177,7 +177,7 @@ class Board:
             else:
                 target = None
             # Persist each successful transition: a failed handoff leaves the task pinned.
-            if old and old['agent'] is not None and old['agent'] != target:
+            if action != 'remove' and old and old['agent'] is not None and old['agent'] != target:
                 self.hook(config, 'unassign', key, old)
                 old = {**old, 'agent': None, 'updated_at': datetime.now(timezone.utc).isoformat()}
                 tasks[key] = old
@@ -248,7 +248,7 @@ def serve(board, port):
                 if not 0 < length <= 65536:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
-                if data.get('action') not in ('assign', 'unassign', 'pin') or not isinstance(data.get('revision'), str):
+                if data.get('action') not in ('assign', 'unassign', 'pin', 'remove') or not isinstance(data.get('revision'), str):
                     raise ValueError('Action and board revision are required')
                 self.reply(200, board.action(data['action'], data.get('id'), data.get('agent'), revision=data['revision']))
             except (OSError, ValueError, TypeError, AttributeError) as error:

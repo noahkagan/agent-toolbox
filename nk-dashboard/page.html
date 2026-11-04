@@ -43,6 +43,7 @@ function card(id,task){
   select.disabled=pending;const submit=button('Assign',()=>{if(select.value)act('assign',id,select.value);});submit.disabled=true;
   select.addEventListener('change',()=>{submit.disabled=pending||!select.value;});controls.append(select,submit);
  }
+ controls.append(button('Remove',()=>act('remove',id)));
  el.append(controls);
  el.addEventListener('dragstart',event=>{if(pending||event.target.closest('a,button,select,.journal')){event.preventDefault();return;}dragged=id;event.dataTransfer.setData('text/plain',id);event.dataTransfer.effectAllowed='move';el.classList.add('dragging');});
  el.addEventListener('dragend',()=>{dragged=null;el.classList.remove('dragging');document.querySelectorAll('.drop-target').forEach(item=>item.classList.remove('drop-target'));});

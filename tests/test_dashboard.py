@@ -59,6 +59,14 @@ if agent == 'fail':
     assert run('list')['tasks'][task]['agent'] is None
     run('pin', 'bad', '--task', 'Bad', '--mission', 'Mission', '--url', 'javascript:alert(1)', ok=False)
     run('set', task, ok=False)
+    run('assign', 'second', '--agent', 'two')
+    before_remove = events()
+    run('remove', 'second')
+    assert 'second' not in run('list')['tasks']
+    assert events() == before_remove
+    run('remove', task)
+    assert task not in run('list')['tasks']
+    assert events() == before_remove
     # Legacy assignments remain visible without triggering external commands.
     data = {'version': 1, 'assignments': {'legacy': {'agent': 'one', 'task': 'Legacy', 'mission': 'Keep me', 'url': '', 'updated_at': '2026-11-03T00:00:00+00:00'}}}
     store = directory/'store/assignments.json'
@@ -95,6 +103,12 @@ if agent == 'fail':
         count = len(events())
         assert post(request, token)[0] == 400
         assert len(events()) == count
+        run('assign', 'legacy', '--agent', 'one')
+        current = json.load(urlopen(base+'/api/board'))
+        before_remove = events()
+        status, removed = post({'action': 'remove', 'id': 'legacy', 'revision': current['revision']}, token)
+        assert status == 200 and 'legacy' not in removed['tasks']
+        assert events() == before_remove
         bad_host = Request(base+'/api/board', headers={'Host': 'attacker.example'})
         try:
             urlopen(bad_host)

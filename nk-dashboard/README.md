@@ -42,7 +42,7 @@ nk-dashboard serve --port 8765
 
 `assign` replaces the former `set` command. It also accepts `--task`, `--mission`, and `--url` to create or edit a task.
 `pin` creates or updates an unassigned task. Pinning an assigned task unassigns it first.
-`unassign` returns the task to PINNED. `remove TASK-ID` deletes a task, unassigning it first when necessary.
+`unassign` returns the task to PINNED. `remove TASK-ID` deletes only the dashboard card. It never runs an unassign hook or messages the agent.
 Task IDs appear in full. One task occupies one location; each agent holds at most one task.
 
 Running `nk-dashboard` without a subcommand starts the server. Open its printed loopback URL.
@@ -51,6 +51,7 @@ The old static `index.html` is no longer updated. The interactive page requires 
 Drag a pinned card into an empty agent slot to assign it. Drag an assigned card into PINNED to unassign it.
 Dragging between empty agent slots runs unassign followed by assign. Occupied slots reject new cards; unassign their tasks first.
 Select-and-Assign controls and Unassign buttons provide keyboard alternatives.
+Each card also has a Remove button; removing a card leaves the task files and agent work unchanged.
 The page refreshes every minute and displays command errors.
 
 ## Action behavior
