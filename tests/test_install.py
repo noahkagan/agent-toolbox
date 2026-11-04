@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert (home / ".codex/AGENTS.md").resolve() == root / "AGENTS.md"
     assert (home / ".claude/CLAUDE.md").resolve() == root / "AGENTS.md"
     assert (home / ".local/bin/nk").resolve() == root / "bin/nk"
-    assert (home / ".local/bin/dashboard").resolve() == root / "bin/dashboard"
+    assert (home / ".local/bin/nk-dashboard").resolve() == root / "bin/nk-dashboard"
     assert (home / ".agents/skills").resolve() == root / "skills"
     assert (home / ".claude/skills").resolve() == root / "skills"
     assert not (home / ".agents/skills/stale-skill").exists()

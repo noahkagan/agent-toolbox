@@ -19,7 +19,7 @@ then `python3` and versioned interpreters. Clone the repository, review
 ./install.sh
 ```
 
-The installer links the instructions, skills, and `nk` and `dashboard` commands into your home
+The installer links the instructions, skills, and `nk` and `nk-dashboard` commands into your home
 directory. Existing regular files at the instruction or command destinations
 cause installation to stop. Existing `~/.agents/skills` and
 `~/.claude/skills` paths are replaced by links to this checkout.
@@ -45,16 +45,21 @@ nk root
 This creates the workspace marker, `TODO.md` task index, and `scratch/` task
 directory. Run `nk task --help` for task commands.
 
-## Use `dashboard`
+## Use `nk-dashboard`
 
-Track delegated work independently of any session launcher or task manager:
+Pin tasks and assign configured agents through an interactive local board.
+Create `~/.config/nk-dashboard/config.json` using the
+[configuration example](nk-dashboard/config.example.json), then run:
 
 ```sh
-dashboard set example --agent worker-1 --task "Review a change" --mission "Identify correctness gaps before release."
-dashboard
+nk-dashboard pin example --task "Review a change" --mission "Identify correctness gaps before release."
+nk-dashboard assign example --agent worker-1
+nk-dashboard
 ```
 
-Open the printed HTML path. See [dashboard](dashboard/README.md) for updates and storage.
+Open the printed local URL. Configured commands run when tasks enter or leave
+agent slots. See [nk-dashboard](nk-dashboard/README.md) for configuration,
+commands, and action failure behavior.
 
 ## Test
 
