@@ -45,6 +45,7 @@ check_link() {
 check_link "$source_root/AGENTS.md" "$HOME/.codex/AGENTS.md"
 check_link "$source_root/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 check_link "$source_root/bin/nk" "$HOME/.local/bin/nk"
+check_link "$source_root/bin/dashboard" "$HOME/.local/bin/dashboard"
 
 # Install policies first because malformed existing settings must fail before links change.
 python=$(find_python)
@@ -54,6 +55,7 @@ mkdir -p "$HOME/.local/bin" "$HOME/.agents" "$HOME/.codex" "$HOME/.claude"
 ln -sfn "$source_root/AGENTS.md" "$HOME/.codex/AGENTS.md"
 ln -sfn "$source_root/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 ln -sfn "$source_root/bin/nk" "$HOME/.local/bin/nk"
+ln -sfn "$source_root/bin/dashboard" "$HOME/.local/bin/dashboard"
 rm -rf -- "$HOME/.agents/skills" "$HOME/.claude/skills"
 ln -s "$source_root/skills" "$HOME/.agents/skills"
 ln -s "$source_root/skills" "$HOME/.claude/skills"
