@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="dashboard-token" content="<!-- token -->">
+<title>nk-dashboard</title>
+<style>
+:root{color-scheme:dark;--paper:#101613;--panel:#17211b;--card:#1c2820;--ink:#e4eee7;--muted:#93a89a;--line:#304136;--accent:#add7b9}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button,select{cursor:pointer}button:disabled,select:disabled{cursor:wait;opacity:.5}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}:focus-visible{outline:2px solid var(--accent);outline-offset:4px}header{padding:23px max(5vw,24px);background:#141e18;border-bottom:1px solid var(--line)}.header-inner{max-width:1400px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:30px}h1{margin:0;font-size:15px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}.mark{width:19px;height:19px;display:grid;grid-template-columns:1fr 1fr;gap:3px}.mark i{background:var(--accent);border-radius:2px}.mark i:last-child{opacity:.4}.search{width:340px;max-width:50vw;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 12px;color:var(--ink);font-size:12px}main{max-width:1500px;margin:auto;padding:28px max(5vw,24px) 60px}.heading{font-size:11px;letter-spacing:.15em;color:var(--muted);margin:0 0 17px;font-weight:650}.board-section+.board-section{margin-top:38px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;align-items:stretch}.pinned-zone{min-height:100px;border-radius:12px;outline:1px solid transparent;outline-offset:8px}.card{background:var(--card);border:1px solid #36493d;border-radius:10px;padding:21px;min-width:0;display:flex;flex-direction:column;cursor:grab}.card:active{cursor:grabbing}.task-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#92ad9c;font-size:10px;overflow-wrap:anywhere;margin-bottom:9px}.card h3{font-size:18px;font-weight:600;letter-spacing:-.025em;line-height:1.4;margin:0 0 12px;overflow-wrap:anywhere}.mission{white-space:pre-wrap;color:#b1c4b7;overflow-wrap:anywhere;font-size:12px;line-height:1.75;margin:0 0 22px}.journal{margin:0 0 22px;padding-top:14px;border-top:1px solid #34483a;cursor:text}.journal-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.journal-heading{font-size:12px;font-weight:600;color:#c6d9cd;margin:0 0 7px;overflow-wrap:anywhere}.journal-summary{font-size:12px;line-height:1.7;color:#a8bdb0;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.connection.stale{color:#efbea1}.card-actions{display:flex;gap:8px;align-items:center;margin-top:auto;padding-top:15px;border-top:1px solid #34483a}.card-actions select{min-width:0;flex:1;background:#152019;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 8px;font-size:11px}.card-actions button{border:1px solid #496650;color:#cae6d2;border-radius:6px;background:#263c2e;padding:6px 11px;font-size:11px}.card-actions button:hover:not(:disabled){background:#35503e}.slot{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-height:230px;min-width:0;display:flex;flex-direction:column}.agent-name{font-size:12px;font-weight:650;overflow-wrap:anywhere;margin:0 4px 13px;display:flex;align-items:center;gap:8px}.agent-name:before{content:"";width:6px;height:6px;border-radius:50%;background:#739782;flex:none}.slot .card{flex:1}.slot-empty{border:1px dashed #344b3c;border-radius:9px;min-height:160px;flex:1;display:flex;align-items:center;justify-content:center;color:#718a79;font-size:12px}.slot.filtered .card{opacity:.35}.drop-target{outline:2px solid var(--accent);outline-offset:3px;background:#203429}.placeholder{padding:28px 16px;border:1px dashed var(--line);border-radius:10px;grid-column:1/-1;color:var(--muted);text-align:center;font-size:12px}.notice{padding:11px 14px;border:1px solid #765748;color:#f4cfb9;background:#32241e;border-radius:8px;margin-bottom:25px;overflow-wrap:anywhere}.notice:empty{display:none}.connection{font-size:11px;color:var(--muted);margin-top:25px}.dragging{opacity:.35}[hidden]{display:none!important}@media(max-width:1050px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.grid{grid-template-columns:1fr}.header-inner{flex-direction:column;align-items:stretch;gap:16px}.search{max-width:none;width:100%}.card{padding:18px}main{padding-top:22px}.slot{min-height:200px}}
+</style>
+</head>
+<body>
+<header><div class="header-inner"><h1><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>nk-dashboard</h1><input id="search" class="search" type="search" aria-label="Search tasks and agents" placeholder="Find an agent, task, or mission…"></div></header>
+<main>
+<div id="error" class="notice" role="alert"></div>
+<section class="board-section" aria-labelledby="pinned-heading"><h2 class="heading" id="pinned-heading">PINNED</h2><div id="pinned" class="grid pinned-zone"></div></section>
+<section class="board-section" aria-labelledby="assigned-heading"><h2 class="heading" id="assigned-heading">ASSIGNED</h2><div id="assigned" class="grid"></div></section>
+<p id="connection" class="connection" role="status">Connecting…</p>
+</main>
+<script>
+'use strict';
+const token=document.querySelector('meta[name="dashboard-token"]').content;
+const pinned=document.querySelector('#pinned'),assigned=document.querySelector('#assigned'),search=document.querySelector('#search'),error=document.querySelector('#error'),connection=document.querySelector('#connection');
+let board=null,pending=false,dragged=null,loading=false;
+function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
+function showError(message){error.textContent=message;}
+function matches(id,task){const term=search.value.trim().toLowerCase();return !term||[id,task.task,task.mission,task.agent||'',task.journal?.heading||'',task.journal?.summary||''].join(' ').toLowerCase().includes(term);}
+function occupied(agent){return Object.values(board.tasks).some(task=>task.agent===agent);}
+function button(text,callback){const el=node('button','',text);el.type='button';el.disabled=pending;el.addEventListener('click',callback);return el;}
+function card(id,task){
+ const el=node('article','card');el.dataset.taskId=id;el.draggable=!pending;
+ el.append(node('div','task-id',id));const title=node('h3');
+ if(task.url&&/^(https?:|file:|\/)/i.test(task.url)){const link=node('a','',task.task);link.href=task.url.startsWith('/')?'file://'+task.url.split('/').map(encodeURIComponent).join('/'):task.url;link.target='_blank';link.rel='noopener noreferrer';title.append(link);}else title.textContent=task.task;
+ el.append(title,node('p','mission',task.mission));
+ if(task.journal){
+  const journal=node('section','journal');journal.append(node('div','journal-label','Latest journal'),node('h4','journal-heading',task.journal.heading),node('p','journal-summary',task.journal.summary));
+  el.append(journal);
+ }
+ const controls=node('div','card-actions');
+ if(task.agent){controls.append(button('Unassign',()=>act('unassign',id)));}
+ else{
+  const select=node('select');select.setAttribute('aria-label','Assign '+task.task+' to agent');select.append(new Option('Choose an agent',''));
+  for(const agent of board.agents){const option=new Option(agent.name,agent.name);option.disabled=occupied(agent.name);select.append(option);}
+  select.disabled=pending;const submit=button('Assign',()=>{if(select.value)act('assign',id,select.value);});submit.disabled=true;
+  select.addEventListener('change',()=>{submit.disabled=pending||!select.value;});controls.append(select,submit);
+ }
+ el.append(controls);
+ el.addEventListener('dragstart',event=>{if(pending||event.target.closest('a,button,select,.journal')){event.preventDefault();return;}dragged=id;event.dataTransfer.setData('text/plain',id);event.dataTransfer.effectAllowed='move';el.classList.add('dragging');});
+ el.addEventListener('dragend',()=>{dragged=null;el.classList.remove('dragging');document.querySelectorAll('.drop-target').forEach(item=>item.classList.remove('drop-target'));});
+ return el;
+}
+function dropZone(el,agent){
+ el.addEventListener('dragover',event=>{if(!dragged||pending||(agent&&occupied(agent)))return;event.preventDefault();event.dataTransfer.dropEffect='move';el.classList.add('drop-target');});
+ el.addEventListener('dragleave',event=>{if(!el.contains(event.relatedTarget))el.classList.remove('drop-target');});
+ el.addEventListener('drop',event=>{event.preventDefault();el.classList.remove('drop-target');const id=dragged;dragged=null;if(!id||pending||!board.tasks[id])return;if(agent&&occupied(agent)){showError('Unassign the current task before using this slot.');return;}if(agent)act('assign',id,agent);else if(board.tasks[id].agent)act('unassign',id);});
+}
+function render(){
+ if(!board)return;pinned.replaceChildren();assigned.replaceChildren();let pinnedCount=0;
+ for(const [id,task]of Object.entries(board.tasks)){if(task.agent===null&&matches(id,task)){pinned.append(card(id,task));pinnedCount++;}}
+ if(!pinnedCount)pinned.append(node('div','placeholder',search.value?'No pinned tasks match your search.':'Drop a task here to unassign it, or use nk-dashboard pin.'));
+ for(const agent of board.agents){
+  const slot=node('div','slot');slot.dataset.agent=agent.name;slot.append(node('h3','agent-name',agent.name));
+  const entry=Object.entries(board.tasks).find(([,task])=>task.agent===agent.name);
+  if(entry){slot.append(card(...entry));if(!matches(...entry))slot.classList.add('filtered');}
+  else slot.append(node('div','slot-empty','Drop a task here'));
+  dropZone(slot,agent.name);assigned.append(slot);
+ }
+ if(!board.agents.length)assigned.append(node('div','placeholder','No agents are configured.'));
+ const sync=board.journal_sync;connection.classList.toggle('stale',Boolean(sync?.error));
+ const synced=sync?.updated_at?'Workspace synced '+new Date(sync.updated_at).toLocaleString():'Workspace not yet synced';
+ connection.textContent=pending?'Running configured action…':sync?(sync.error?synced+' · Journal data may be stale: '+sync.error:synced+' · Refreshes every minute'):'Refreshes every minute';
+}
+async function refresh(){
+ if(pending||dragged||loading)return;loading=true;
+ try{const response=await fetch('/api/board',{cache:'no-store'});const data=await response.json();if(!response.ok)throw Error(data.error||'Could not load board.');if(!pending){board=data;render();}}
+ catch(exc){connection.classList.add('stale');connection.textContent='Unable to refresh; displayed data may be stale: '+exc.message;}
+ finally{loading=false;}
+}
+async function act(action,id,agent){
+ if(pending)return;pending=true;showError('');render();
+ try{const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json','X-Dashboard-Token':token},body:JSON.stringify({action,id,agent,revision:board.revision})});const data=await response.json();if(!response.ok)throw Error(data.error||'Action failed.');
+ for(const [key,task]of Object.entries(data.tasks)){if(!Object.hasOwn(task,'journal')&&board.tasks[key]?.journal)task.journal=board.tasks[key].journal;}
+ if(!Object.hasOwn(data,'journal_sync')&&board.journal_sync)data.journal_sync=board.journal_sync;
+ board=data;}
+ catch(exc){showError(exc.message);}
+ finally{pending=false;render();await refresh();}
+}
+try{search.value=sessionStorage.getItem('nk-dashboard-search')||'';}catch{}
+search.addEventListener('input',()=>{try{sessionStorage.setItem('nk-dashboard-search',search.value);}catch{}render();});
+dropZone(pinned,null);refresh();setInterval(refresh,60000);
+</script>
+</body>
+</html>
