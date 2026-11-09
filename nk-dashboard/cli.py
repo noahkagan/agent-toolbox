@@ -8,9 +8,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import string
 import subprocess
+import sys
 import tempfile
 import threading
 from journals import Journals
@@ -109,25 +111,48 @@ def locked(directory):
         yield
 
 
-def snapshot(config, tasks):
+def note_path(directory, key):
+    if not isinstance(key, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', key):
+        raise ValueError('Note IDs must start with a letter or digit and contain only letters, digits, dots, underscores, or hyphens')
+    path = directory / (key + '.md')
+    if directory.is_symlink() or path.is_symlink():
+        raise ValueError('Note paths must not be symbolic links')
+    return path
+
+
+def read_notes(directory):
+    if directory.is_symlink():
+        raise ValueError('Note paths must not be symbolic links')
+    notes = {}
+    for path in sorted(directory.glob('*.md')):
+        path = note_path(directory, path.stem)
+        if not path.is_file():
+            raise ValueError('Notes must be regular Markdown files')
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW)) as stream:
+            notes[path.stem] = stream.read()
+    return notes
+
+
+def snapshot(config, tasks, notes):
     names = {agent['name'] for agent in config['agents']}
     unknown = {t['agent'] for t in tasks.values() if t['agent'] is not None} - names
     if unknown:
         raise ValueError(f'Assigned agents missing from configuration: {sorted(unknown)}')
-    revision = hashlib.sha256(json.dumps([config, tasks], sort_keys=True).encode()).hexdigest()
-    return {'agents': [{'name': agent['name']} for agent in config['agents']], 'tasks': tasks, 'revision': revision}
+    revision = hashlib.sha256(json.dumps([config, tasks, notes], sort_keys=True).encode()).hexdigest()
+    return {'agents': [{'name': agent['name']} for agent in config['agents']], 'tasks': tasks, 'notes': notes, 'revision': revision}
 
 
 class Board:
     def __init__(self, directory, config_path):
         self.directory = directory
         self.path = directory / 'assignments.json'
+        self.notes_directory = directory / 'notes'
         self.config_path = config_path
         self.journals = Journals()
 
     def read(self):
         with locked(self.directory):
-            result = snapshot(read_config(self.config_path), read_store(self.path))
+            result = snapshot(read_config(self.config_path), read_store(self.path), read_notes(self.notes_directory))
         return self.journals.decorate(result)
 
     def save(self, tasks):
@@ -146,14 +171,35 @@ class Board:
             detail = (result.stderr or result.stdout).strip()[-2000:]
             raise ValueError(f'{action} command failed ({result.returncode}): {detail}')
 
-    def action(self, action, key, agent=None, fields=None, revision=None):
+    def action(self, action, key, agent=None, fields=None, revision=None, markdown=None):
         with locked(self.directory):
             config, tasks = read_config(self.config_path), read_store(self.path)
-            current = snapshot(config, tasks)
+            notes = read_notes(self.notes_directory)
+            current = snapshot(config, tasks, notes)
             if revision is not None and revision != current['revision']:
                 raise ValueError('The board changed. Refresh and try again.')
             if not isinstance(key, str) or not key.strip():
                 raise ValueError('Task ID must be nonempty')
+            if action in ('pin-note', 'remove-note'):
+                path = note_path(self.notes_directory, key)
+                if agent is not None or fields:
+                    raise ValueError('Notes cannot have task fields or agent assignments')
+                if action == 'pin-note':
+                    if key in tasks:
+                        raise ValueError(f'Task already uses this ID: {key}')
+                    if not isinstance(markdown, str):
+                        raise ValueError('Note Markdown is required')
+                    self.notes_directory.mkdir(exist_ok=True)
+                    atomic_write(path, markdown)
+                    notes[key] = markdown
+                else:
+                    if key not in notes:
+                        raise ValueError(f'Unknown note: {key}')
+                    path.unlink()
+                    del notes[key]
+                return snapshot(config, tasks, notes)
+            if key in notes:
+                raise ValueError('Notes are pinned only; use pin-note or remove-note')
             if action not in ('assign', 'unassign', 'pin', 'remove'):
                 raise ValueError('Unknown action')
             old = tasks.get(key)
@@ -191,7 +237,7 @@ class Board:
                     self.hook(config, 'assign', key, record)
                 tasks[key] = record
             self.save(tasks)
-            return snapshot(config, tasks)
+            return snapshot(config, tasks, notes)
 
 
 def serve(board, port):
@@ -248,7 +294,7 @@ def serve(board, port):
                 if not 0 < length <= 65536:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
-                if data.get('action') not in ('assign', 'unassign', 'pin', 'remove') or not isinstance(data.get('revision'), str):
+                if data.get('action') not in ('assign', 'unassign', 'pin', 'remove', 'remove-note') or not isinstance(data.get('revision'), str):
                     raise ValueError('Action and board revision are required')
                 self.reply(200, board.action(data['action'], data.get('id'), data.get('agent'), revision=data['revision']))
             except (OSError, ValueError, TypeError, AttributeError) as error:
@@ -279,6 +325,11 @@ def main(argv=None):
         if action in ('assign', 'pin'):
             for field in FIELDS:
                 command.add_argument('--' + field)
+    note = commands.add_parser('pin-note')
+    note.add_argument('id')
+    note.add_argument('--file', required=True)
+    commands.add_parser('remove-note').add_argument('id')
+    commands.add_parser('note-template')
     commands.add_parser('list')
     server = commands.add_parser('serve')
     server.add_argument('--port', type=int, default=8765)
@@ -287,6 +338,11 @@ def main(argv=None):
     try:
         if args.command in (None, 'serve'):
             serve(board, getattr(args, 'port', 8765))
+        elif args.command == 'note-template':
+            print(Path(__file__).with_name('note-template.md').read_text(), end='')
+        elif args.command == 'pin-note':
+            markdown = sys.stdin.read() if args.file == '-' else Path(args.file).expanduser().read_text()
+            print(json.dumps(board.action('pin-note', args.id, markdown=markdown), indent=2))
         elif args.command == 'list':
             print(json.dumps(board.read(), indent=2))
         else:

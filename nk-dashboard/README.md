@@ -1,7 +1,7 @@
 # nk-dashboard
 
-An interactive task board with PINNED tasks and one ASSIGNED slot per configured agent.
-Every agent remains visible, including agents without a task. Search filters pinned tasks and dims unmatched assignments without hiding agent slots.
+An interactive task board with PINNED tasks and Markdown notes, plus one ASSIGNED slot per configured agent.
+Every agent remains visible, including agents without a task. Search filters pinned tasks and notes, and dims unmatched assignments without hiding agent slots.
 
 Requires Python 3.11 or later on POSIX. Uses the Python standard library and a loopback HTTP server.
 Run `../install.sh` to install the `nk-dashboard` command.
@@ -54,6 +54,32 @@ Select-and-Assign controls and Unassign buttons provide keyboard alternatives.
 Each card also has a Remove button; removing a card leaves the task files and agent work unchanged.
 The page refreshes every minute and displays command errors.
 
+## Pinned notes
+
+Notes are plain Markdown cards in PINNED NOTES. They cannot be assigned to agents and never invoke configured commands.
+
+```sh
+nk-dashboard note-template > idea.md
+# Edit idea.md, then pin it:
+nk-dashboard pin-note idea --file idea.md
+# Alternatively, read Markdown from standard input:
+cat idea.md | nk-dashboard pin-note idea --file -
+nk-dashboard remove-note idea
+```
+
+`pin-note` creates or replaces a note. Note IDs start with an ASCII letter or digit;
+remaining characters may also include dots, underscores, and hyphens. Task and note IDs must not overlap.
+The template contains a title, Context, Next steps, and Decisions / open questions.
+
+The page renders headings, paragraphs, flat numbered and bullet lists, links, bold text,
+inline code, and fenced code blocks. Raw HTML stays text; only HTTP(S) links are clickable.
+
+Notes live at `STORE/notes/<id>.md`, where `STORE` is the configured storage directory.
+Edit those files directly; each board read reloads them. Symbolic links are rejected.
+Removing a note deletes its Markdown file. The browser Remove button has the same effect.
+`list` and `/api/board` include a `notes` mapping from IDs to Markdown strings.
+Note changes invalidate stale browser actions, including task assignments.
+
 ## Action behavior
 
 CLI commands and browser moves use the same transition logic and command templates.
@@ -75,7 +101,8 @@ Existing assignments remain in `$XDG_STATE_HOME/dashboard`, or `~/.local/state/d
 `DASHBOARD_HOME` and `--store PATH` override the storage directory.
 Version 1 assignments load without executing commands; the first mutation writes version 2 task records.
 Include every existing assigned agent in configuration before opening the board.
-The JSON store remains authoritative and uses locked, atomic updates. Back it up with the configuration.
+The JSON store remains authoritative for tasks. Markdown files remain authoritative for notes.
+Dashboard writes use locked, atomic updates. Back up the storage directory and configuration.
 
 ## Journal summaries
 
