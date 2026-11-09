@@ -39,8 +39,8 @@ def read_config(path):
             raise ValueError('Agent names must be nonempty and unique')
         names.add(name.casefold())
     commands = data.get('commands', {})
-    if not isinstance(commands, dict) or set(commands) - {'assign', 'unassign'}:
-        raise ValueError('Commands may define assign and unassign only')
+    if not isinstance(commands, dict) or set(commands) - {'assign', 'unassign', 'archive'}:
+        raise ValueError('Commands may define assign, unassign, and archive only')
     for action, argv in commands.items():
         if not isinstance(argv, list) or not argv or any(not isinstance(arg, str) for arg in argv):
             raise ValueError(f'{action} must be a nonempty argument array')
@@ -200,11 +200,17 @@ class Board:
                 return snapshot(config, tasks, notes)
             if key in notes:
                 raise ValueError('Notes are pinned only; use pin-note or remove-note')
-            if action not in ('assign', 'unassign', 'pin', 'remove'):
+            if action not in ('assign', 'unassign', 'pin', 'remove', 'archive'):
                 raise ValueError('Unknown action')
             old = tasks.get(key)
-            if action in ('unassign', 'remove') and old is None:
+            if action in ('unassign', 'remove', 'archive') and old is None:
                 raise ValueError(f'Unknown task: {key}')
+            if action == 'archive':
+                if old['agent'] is not None:
+                    raise ValueError('Unassign the task before archiving it')
+                if 'archive' not in config['commands']:
+                    raise ValueError('Configure an archive command before archiving tasks')
+                self.hook(config, 'archive', key, old)
             record = dict(old or {'task': '', 'mission': '', 'url': '', 'agent': None})
             for field, value in (fields or {}).items():
                 if field not in FIELDS or not isinstance(value, str):
@@ -228,7 +234,7 @@ class Board:
                 old = {**old, 'agent': None, 'updated_at': datetime.now(timezone.utc).isoformat()}
                 tasks[key] = old
                 self.save(tasks)
-            if action == 'remove':
+            if action in ('remove', 'archive'):
                 del tasks[key]
             else:
                 record['agent'] = target
@@ -294,7 +300,7 @@ def serve(board, port):
                 if not 0 < length <= 65536:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(length))
-                if data.get('action') not in ('assign', 'unassign', 'pin', 'remove', 'remove-note') or not isinstance(data.get('revision'), str):
+                if data.get('action') not in ('assign', 'unassign', 'pin', 'remove', 'archive', 'remove-note') or not isinstance(data.get('revision'), str):
                     raise ValueError('Action and board revision are required')
                 self.reply(200, board.action(data['action'], data.get('id'), data.get('agent'), revision=data['revision']))
             except (OSError, ValueError, TypeError, AttributeError) as error:
@@ -317,7 +323,7 @@ def main(argv=None):
     parser.add_argument('--store', type=Path, default=Path(default))
     parser.add_argument('--config', type=Path, default=Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'nk-dashboard/config.json')
     commands = parser.add_subparsers(dest='command')
-    for action in ('assign', 'pin', 'unassign', 'remove'):
+    for action in ('assign', 'pin', 'unassign', 'remove', 'archive'):
         command = commands.add_parser(action)
         command.add_argument('id')
         if action == 'assign':

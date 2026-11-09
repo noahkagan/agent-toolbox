@@ -36,6 +36,7 @@ Removing an agent from configuration requires unassigning its task first.
 nk-dashboard pin TASK-ID --task 'Task title' --mission 'Task mission' --url https://example.org/task
 nk-dashboard assign TASK-ID --agent worker-1
 nk-dashboard unassign TASK-ID
+nk-dashboard archive TASK-ID
 nk-dashboard list
 nk-dashboard serve --port 8765
 ```
@@ -43,6 +44,12 @@ nk-dashboard serve --port 8765
 `assign` replaces the former `set` command. It also accepts `--task`, `--mission`, and `--url` to create or edit a task.
 `pin` creates or updates an unassigned task. Pinning an assigned task unassigns it first.
 `unassign` returns the task to PINNED. `remove TASK-ID` deletes only the dashboard card. It never runs an unassign hook or messages the agent.
+`archive TASK-ID` runs the configured `archive` command and removes the card only after success.
+It requires an unassigned task and never runs assignment hooks. Pinned task cards show an Archive button.
+Configure the command for your task system; for nk, use
+`["nk", "task", "archive", "--workspace", "/path/to/workspace", "{id}"]`.
+Archiving does not commit or push the task workspace. A missing or failed command keeps the card.
+
 Task IDs appear in full. One task occupies one location; each agent holds at most one task.
 
 Running `nk-dashboard` without a subcommand starts the server. Open its printed loopback URL.
